@@ -1,0 +1,74 @@
+.item-detail {
+  padding: 14px 16px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  max-height: 220px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.detail-empty {
+  text-align: center;
+  padding: 20px;
+  font-size: 0.9rem;
+}
+
+.detail-header {
+  margin-bottom: 12px;
+}
+
+.detail-type {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.detail-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.detail-row .label {
+  width: 90px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.detail-row .ok {
+  color: var(--success);
+}
+
+.detail-row .warn {
+  color: var(--warning);
+}
+
+.detail-cues {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.cue-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-right: 6px;
+}

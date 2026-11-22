@@ -1,0 +1,70 @@
+.preview-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+.preview-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.preview-stage {
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  z-index: 10;
+}
+
+.preview-overlay.black {
+  background: #000;
+  color: #333;
+}
+
+.preview-overlay.clear {
+  background: transparent;
+  color: var(--text-muted);
+  border: 2px dashed var(--border);
+}
+
+.preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.preview-placeholder.muted {
+  color: var(--text-muted);
+}
+
+.placeholder-icon {
+  font-size: 2.5rem;
+  opacity: 0.7;
+}
