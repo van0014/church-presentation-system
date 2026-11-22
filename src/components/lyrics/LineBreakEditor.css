@@ -206,3 +206,69 @@
   background: var(--bg-secondary);
   flex-shrink: 0;
 }
+
+.accent-caret.slide-break {
+  background: var(--warning);
+  box-shadow: 0 0 12px var(--warning), 0 0 5px var(--warning);
+  width: 4px;
+}
+
+.accent-caret.slide-break::after {
+  content: 'slide';
+  color: var(--warning);
+}
+
+.lb-line.mode-slide-break {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+/* Clickable gap between lines in the same slide */
+.lb-inter-gap {
+  height: 10px;
+  margin: 0 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: height 0.12s, background 0.12s;
+}
+
+.lb-inter-gap:hover,
+.lb-inter-gap.hot {
+  height: 22px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px dashed var(--warning);
+}
+
+.lb-inter-gap-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--warning);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.lb-inter-gap.hot .lb-inter-gap-label {
+  opacity: 1;
+}
+
+.lb-slide-gap.removable {
+  cursor: pointer;
+}
+
+.lb-slide-gap.removable:hover span {
+  color: var(--warning);
+}
+
+.lb-slide-gap.removable:hover::before {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--warning) 0,
+    var(--warning) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}

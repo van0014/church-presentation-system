@@ -15,18 +15,19 @@ interface FlatLine {
   lineIndex: number;
   sectionLabel: string;
   text: string;
-  /** Global visual index for keyboard / focus */
   flatIndex: number;
 }
 
 /**
- * Revolutionary line-break editor.
+ * Line-break + slide-break editor.
  *
- * Interaction model (no buttons needed):
- * - Accent caret magnetically snaps to the nearest word boundary
- * - Click on a word boundary → SPLIT the line there
- * - Click at the very start or end of a line → JOIN with previous / next line
- * - Blank lines (slide breaks) are preserved as visual separators
+ * Interaction (minimal UI):
+ * - Caret snaps to nearest word edge
+ * - Click word edge → SPLIT line
+ * - Click line start/end → JOIN with prev/next line
+ * - Shift+click line start/end → SLIDE BREAK (instead of join)
+ * - Click the gap BETWEEN two lines in the same slide → SLIDE BREAK there
+ * - Click an existing “slide break” separator → remove it (merge slides, keep lines)
  */
 export function LineBreakEditor({ song, onSave, onCancel }: Props) {
   const [sections, setSections] = useState<SongSection[]>(
@@ -35,15 +36,13 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
   const [title] = useState(song.title);
   const [hover, setHover] = useState<{
     flatIndex: number;
-    /** Character offset that the caret is snapped to */
     offset: number;
-    /** 'split' | 'join-prev' | 'join-next' */
-    mode: 'split' | 'join-prev' | 'join-next';
+    mode: 'split' | 'join-prev' | 'join-next' | 'slide-break';
   } | null>(null);
+  const [gapHover, setGapHover] = useState<string | null>(null); // "si-sli-afterLi"
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Flatten all lines for easier hit-testing, keeping section/slide identity
   const flatLines: FlatLine[] = [];
   sections.forEach((section, si) => {
     section.slides.forEach((slide, sli) => {
@@ -63,18 +62,14 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
   const snapToWordBoundary = (text: string, rawOffset: number): number => {
     if (text.length === 0) return 0;
     const clamped = Math.max(0, Math.min(text.length, rawOffset));
-
-    // Already at a boundary?
     if (clamped === 0 || clamped === text.length) return clamped;
     if (text[clamped] === ' ' || text[clamped - 1] === ' ') return clamped;
 
-    // Find nearest space (or start/end)
     let left = clamped;
     while (left > 0 && text[left - 1] !== ' ') left--;
     let right = clamped;
     while (right < text.length && text[right] !== ' ') right++;
 
-    // Prefer the closer boundary; ties go to the right (after the word)
     if (clamped - left <= right - clamped) return left;
     return right;
   };
@@ -87,11 +82,14 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
 
       const text = flatLines[flatIndex]?.text ?? '';
       if (!text) {
-        setHover({ flatIndex, offset: 0, mode: 'join-prev' });
+        setHover({
+          flatIndex,
+          offset: 0,
+          mode: e.shiftKey ? 'slide-break' : 'join-prev',
+        });
         return;
       }
 
-      // Approximate character offset from mouse X using canvas metrics
       const rect = textEl.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const style = window.getComputedStyle(textEl);
@@ -113,9 +111,14 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
 
       const snapped = snapToWordBoundary(text, offset);
 
-      let mode: 'split' | 'join-prev' | 'join-next' = 'split';
-      if (snapped === 0) mode = 'join-prev';
-      else if (snapped === text.length) mode = 'join-next';
+      let mode: 'split' | 'join-prev' | 'join-next' | 'slide-break' = 'split';
+      if (snapped === 0 || snapped === text.length) {
+        if (e.shiftKey) {
+          mode = 'slide-break';
+        } else {
+          mode = snapped === 0 ? 'join-prev' : 'join-next';
+        }
+      }
 
       setHover({ flatIndex, offset: snapped, mode });
     },
@@ -159,34 +162,28 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
 
       if (direction === 'prev') {
         if (fl.lineIndex > 0) {
-          // Join with previous line in same slide
           const prevLine = slide.lines[fl.lineIndex - 1];
           const curr = slide.lines[fl.lineIndex];
           prevLine.text = `${prevLine.text} ${curr.text}`.replace(/\s+/g, ' ').trim();
           slide.lines.splice(fl.lineIndex, 1);
         } else if (fl.slideIndex > 0) {
-          // First line of slide → join with last line of previous slide
-          // (this also removes a slide break)
           const prevSlide = section.slides[fl.slideIndex - 1];
           const last = prevSlide.lines[prevSlide.lines.length - 1];
           const curr = slide.lines[0];
           if (last && curr) {
             last.text = `${last.text} ${curr.text}`.replace(/\s+/g, ' ').trim();
             slide.lines.shift();
-            // Move remaining lines of this slide into previous, then remove empty slide
             prevSlide.lines.push(...slide.lines);
             section.slides.splice(fl.slideIndex, 1);
           }
         }
       } else {
-        // join-next
         if (fl.lineIndex < slide.lines.length - 1) {
           const curr = slide.lines[fl.lineIndex];
           const nextLine = slide.lines[fl.lineIndex + 1];
           curr.text = `${curr.text} ${nextLine.text}`.replace(/\s+/g, ' ').trim();
           slide.lines.splice(fl.lineIndex + 1, 1);
         } else if (fl.slideIndex < section.slides.length - 1) {
-          // Last line of slide → join with first line of next slide
           const nextSlide = section.slides[fl.slideIndex + 1];
           const curr = slide.lines[fl.lineIndex];
           const first = nextSlide.lines[0];
@@ -203,13 +200,82 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
     setHover(null);
   };
 
-  const handleClick = (flatIndex: number) => {
+  /**
+   * Insert a slide break AFTER the given line within its slide.
+   * Lines after that index move into a new following slide.
+   */
+  const applySlideBreakAfter = (
+    sectionIndex: number,
+    slideIndex: number,
+    lineIndex: number
+  ) => {
+    setSections((prev) => {
+      const next = structuredClone(prev);
+      const section = next[sectionIndex];
+      const slide = section.slides[slideIndex];
+      if (lineIndex < 0 || lineIndex >= slide.lines.length - 1) {
+        // Nothing after this line in the slide — no-op (or break before next slide only)
+        return prev;
+      }
+      const remaining = slide.lines.splice(lineIndex + 1);
+      const newSlide: SongSlide = {
+        id: `slide-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        lines: remaining,
+      };
+      section.slides.splice(slideIndex + 1, 0, newSlide);
+      return next;
+    });
+    setHover(null);
+    setGapHover(null);
+  };
+
+  /** Shift+click at line end → slide break after this line; at start → after previous line */
+  const applySlideBreakFromEdge = (flatIndex: number, atStart: boolean) => {
+    const fl = flatLines[flatIndex];
+    if (!fl) return;
+    if (atStart) {
+      if (fl.lineIndex > 0) {
+        applySlideBreakAfter(fl.sectionIndex, fl.slideIndex, fl.lineIndex - 1);
+      }
+      // at first line of slide: already at slide boundary
+    } else {
+      applySlideBreakAfter(fl.sectionIndex, fl.slideIndex, fl.lineIndex);
+    }
+  };
+
+  /** Merge two adjacent slides (remove slide break, keep all lines separate) */
+  const removeSlideBreak = (sectionIndex: number, afterSlideIndex: number) => {
+    setSections((prev) => {
+      const next = structuredClone(prev);
+      const section = next[sectionIndex];
+      if (afterSlideIndex < 0 || afterSlideIndex >= section.slides.length - 1) {
+        return prev;
+      }
+      const current = section.slides[afterSlideIndex];
+      const following = section.slides[afterSlideIndex + 1];
+      current.lines.push(...following.lines);
+      section.slides.splice(afterSlideIndex + 1, 1);
+      return next;
+    });
+  };
+
+  const handleClick = (e: React.MouseEvent, flatIndex: number) => {
     if (!hover || hover.flatIndex !== flatIndex) return;
+
     if (hover.mode === 'split') {
       applySplit(flatIndex, hover.offset);
-    } else if (hover.mode === 'join-prev') {
+      return;
+    }
+
+    if (hover.mode === 'slide-break' || e.shiftKey) {
+      const atStart = hover.offset === 0;
+      applySlideBreakFromEdge(flatIndex, atStart);
+      return;
+    }
+
+    if (hover.mode === 'join-prev') {
       applyJoin(flatIndex, 'prev');
-    } else {
+    } else if (hover.mode === 'join-next') {
       applyJoin(flatIndex, 'next');
     }
   };
@@ -224,7 +290,6 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
     onSave(updated);
   };
 
-  // Keyboard: Esc cancel, Enter/Cmd+S save
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
@@ -237,7 +302,32 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  // Map from (section, slide, line) → flatIndex for stable lookup during render
+  // Recompute hover mode when Shift is held while already hovering
+  useEffect(() => {
+    const onKeyChange = (e: KeyboardEvent) => {
+      if (e.key !== 'Shift' || !hover) return;
+      const fl = flatLines[hover.flatIndex];
+      if (!fl) return;
+      const atEdge =
+        hover.offset === 0 || hover.offset === (fl.text?.length ?? 0);
+      if (!atEdge) return;
+      setHover((h) =>
+        h
+          ? {
+              ...h,
+              mode: e.type === 'keydown' ? 'slide-break' : hover.offset === 0 ? 'join-prev' : 'join-next',
+            }
+          : null
+      );
+    };
+    window.addEventListener('keydown', onKeyChange);
+    window.addEventListener('keyup', onKeyChange);
+    return () => {
+      window.removeEventListener('keydown', onKeyChange);
+      window.removeEventListener('keyup', onKeyChange);
+    };
+  }, [hover, flatLines]);
+
   const flatIndexMap = new Map<string, number>();
   flatLines.forEach((fl) => {
     flatIndexMap.set(
@@ -252,8 +342,8 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
         <div className="lb-title">
           <span className="lb-song-title">{title}</span>
           <span className="lb-hint">
-            Click word edge to split · Click line edge to join · Esc cancel · ⌘S
-            save
+            Click word edge → split · line edge → join · gap or Shift+edge →
+            slide break · Esc cancel · ⌘S save
           </span>
         </div>
         <div className="lb-meta">
@@ -269,34 +359,60 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
             {section.slides.map((slide, sli) => (
               <div key={slide.id} className="lb-slide">
                 {slide.lines.map((line, li) => {
-                  const flatIndex =
-                    flatIndexMap.get(`${si}-${sli}-${li}`) ?? 0;
+                  const flatIndex = flatIndexMap.get(`${si}-${sli}-${li}`) ?? 0;
                   const isHovered = hover?.flatIndex === flatIndex;
                   const caretOffset = isHovered ? hover!.offset : -1;
                   const mode = isHovered ? hover!.mode : null;
+                  const gapKey = `${si}-${sli}-${li}`;
+                  const showGapAfter = li < slide.lines.length - 1;
 
                   return (
-                    <div
-                      key={line.id}
-                      className={`lb-line ${isHovered ? 'hovered' : ''} ${
-                        mode ? `mode-${mode}` : ''
-                      }`}
-                      onMouseMove={(e) => handleMouseMove(e, flatIndex)}
-                      onMouseLeave={handleMouseLeave}
-                      onClick={() => handleClick(flatIndex)}
-                    >
-                      <LineWithCaret
-                        text={line.text}
-                        caretOffset={caretOffset}
-                        mode={mode}
-                      />
-                    </div>
+                    <React.Fragment key={line.id}>
+                      <div
+                        className={`lb-line ${isHovered ? 'hovered' : ''} ${
+                          mode ? `mode-${mode}` : ''
+                        }`}
+                        onMouseMove={(e) => handleMouseMove(e, flatIndex)}
+                        onMouseLeave={handleMouseLeave}
+                        onClick={(e) => handleClick(e, flatIndex)}
+                      >
+                        <LineWithCaret
+                          text={line.text}
+                          caretOffset={caretOffset}
+                          mode={mode}
+                        />
+                      </div>
+
+                      {/* Inter-line gap: click to insert slide break */}
+                      {showGapAfter && (
+                        <div
+                          className={`lb-inter-gap ${
+                            gapHover === gapKey ? 'hot' : ''
+                          }`}
+                          onMouseEnter={() => setGapHover(gapKey)}
+                          onMouseLeave={() => setGapHover(null)}
+                          onClick={() =>
+                            applySlideBreakAfter(si, sli, li)
+                          }
+                          title="Click to insert slide break"
+                        >
+                          <span className="lb-inter-gap-label">
+                            {gapHover === gapKey ? 'slide break' : ''}
+                          </span>
+                        </div>
+                      )}
+                    </React.Fragment>
                   );
                 })}
 
+                {/* Existing slide break between slides — click to remove */}
                 {sli < section.slides.length - 1 && (
-                  <div className="lb-slide-gap" title="Slide break">
-                    <span>slide break</span>
+                  <div
+                    className="lb-slide-gap removable"
+                    title="Click to remove slide break (merge slides)"
+                    onClick={() => removeSlideBreak(si, sli)}
+                  >
+                    <span>slide break · click to merge</span>
                   </div>
                 )}
               </div>
@@ -307,7 +423,7 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
 
       <footer className="lb-footer">
         <span className="text-muted text-xs">
-          Esc to cancel · ⌘S / Ctrl+S to save
+          Esc cancel · ⌘S / Ctrl+S save
         </span>
         <button className="btn btn-primary text-sm" onClick={handleSave}>
           Save
@@ -317,7 +433,6 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
   );
 }
 
-/** Renders a line of text with an accent caret at the snapped offset */
 function LineWithCaret({
   text,
   caretOffset,
@@ -325,7 +440,7 @@ function LineWithCaret({
 }: {
   text: string;
   caretOffset: number;
-  mode: 'split' | 'join-prev' | 'join-next' | null;
+  mode: 'split' | 'join-prev' | 'join-next' | 'slide-break' | null;
 }) {
   if (caretOffset < 0 || !mode) {
     return <span className="line-text">{text || '\u00A0'}</span>;
@@ -343,9 +458,11 @@ function LineWithCaret({
         title={
           mode === 'split'
             ? 'Click to split here'
+            : mode === 'slide-break'
+            ? 'Click to insert slide break'
             : mode === 'join-prev'
-            ? 'Click to join with previous line'
-            : 'Click to join with next line'
+            ? 'Click to join with previous · Shift+click for slide break'
+            : 'Click to join with next · Shift+click for slide break'
         }
       />
       {after}
