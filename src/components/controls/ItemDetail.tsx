@@ -7,10 +7,12 @@ interface Props {
 }
 
 export function ItemDetail({ onReviewLineBreaks }: Props) {
-  const { state, getCurrentSong, setSlide } = usePresentation();
+  const { state, getCurrentSong, getCurrentTheme, setSlide } = usePresentation();
   const item = state.currentItem;
   const song = getCurrentSong();
+  const theme = getCurrentTheme();
   const { currentSlideIndex } = state.presentation;
+  const linesPerSlide = theme.maxLinesPerSlide || 4;
 
   if (!item) {
     return (
@@ -18,6 +20,17 @@ export function ItemDetail({ onReviewLineBreaks }: Props) {
         <div className="detail-empty text-muted">Select an item from the playlist</div>
       </div>
     );
+  }
+
+  // Build song slide groups for thumbnails
+  const songSlides: { index: number; lines: string[] }[] = [];
+  if (song) {
+    for (let i = 0; i < song.lines.length; i += linesPerSlide) {
+      songSlides.push({
+        index: Math.floor(i / linesPerSlide),
+        lines: song.lines.slice(i, i + linesPerSlide).map((l) => l.text),
+      });
+    }
   }
 
   return (
@@ -34,8 +47,10 @@ export function ItemDetail({ onReviewLineBreaks }: Props) {
             <span>{song.artist || '—'}</span>
           </div>
           <div className="detail-row">
-            <span className="label">Lines</span>
-            <span>{song.lines.length}</span>
+            <span className="label">Lines / slides</span>
+            <span>
+              {song.lines.length} lines · {songSlides.length} slides
+            </span>
           </div>
           <div className="detail-row">
             <span className="label">Line breaks</span>
@@ -53,11 +68,40 @@ export function ItemDetail({ onReviewLineBreaks }: Props) {
           </div>
           <button
             className="btn btn-secondary text-sm"
-            style={{ marginTop: 12 }}
+            style={{ marginTop: 10 }}
             onClick={() => onReviewLineBreaks?.(song.id)}
           >
             {song.lineBreaksReviewed ? 'Edit Line Breaks' : 'Review Line Breaks'}
           </button>
+
+          {/* Slide thumbnail line-up */}
+          <div className="slide-lineup">
+            <div className="slide-lineup-label">
+              Slide line-up · click to jump
+            </div>
+            <div className="slide-thumb-grid">
+              {songSlides.map((slide) => {
+                const isActive = slide.index === currentSlideIndex;
+                return (
+                  <button
+                    key={slide.index}
+                    className={`slide-thumb ${isActive ? 'active' : ''}`}
+                    onClick={() => setSlide(slide.index)}
+                    title={slide.lines.join('\n')}
+                  >
+                    <span className="slide-thumb-num">{slide.index + 1}</span>
+                    <div className="slide-thumb-lines">
+                      {slide.lines.map((t, li) => (
+                        <div key={li} className="slide-thumb-line">
+                          {t || ' '}
+                        </div>
+                      ))}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 

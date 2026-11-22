@@ -140,3 +140,75 @@
   object-fit: contain;
   background: #000;
 }
+
+/* Song slide thumbnail line-up */
+.slide-lineup {
+  margin-top: 14px;
+}
+
+.slide-lineup-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.slide-thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.slide-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  padding: 0;
+  border-radius: var(--radius);
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  min-height: 72px;
+}
+
+.slide-thumb:hover {
+  border-color: #555;
+}
+
+.slide-thumb.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.slide-thumb-num {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 4px 8px 2px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.slide-thumb.active .slide-thumb-num {
+  color: var(--accent);
+}
+
+.slide-thumb-lines {
+  padding: 4px 8px 8px;
+  flex: 1;
+}
+
+.slide-thumb-line {
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: #e5e5e5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

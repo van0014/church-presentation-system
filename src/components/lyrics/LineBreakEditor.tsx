@@ -64,24 +64,36 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
     setRawText(next.join('\n'));
   };
 
-  const splitLine = (index: number) => {
+  /** Split at the actual text cursor position in the focused input */
+  const splitLineAtCursor = (index: number, caret: number) => {
     const line = draftLines[index];
-    // Split roughly in the middle at a space
-    const mid = Math.floor(line.length / 2);
-    let splitAt = line.lastIndexOf(' ', mid);
-    if (splitAt < 8) splitAt = line.indexOf(' ', mid);
-    if (splitAt === -1) return;
+    if (caret <= 0 || caret >= line.length) return;
+
+    // Prefer splitting on a nearby space so we don't cut a word in half
+    let splitAt = caret;
+    if (line[caret] !== ' ' && line[caret - 1] !== ' ') {
+      const before = line.lastIndexOf(' ', caret);
+      const after = line.indexOf(' ', caret);
+      if (before >= 0 && (after < 0 || caret - before <= after - caret)) {
+        splitAt = before;
+      } else if (after >= 0) {
+        splitAt = after;
+      }
+    }
 
     const left = line.slice(0, splitAt).trim();
     const right = line.slice(splitAt).trim();
+    if (!left && !right) return;
+
     const next = [
       ...draftLines.slice(0, index),
-      left,
-      right,
+      ...(left ? [left] : []),
+      ...(right ? [right] : []),
       ...draftLines.slice(index + 1),
     ];
     setDraftLines(next);
     setRawText(next.join('\n'));
+    setSelectedIndex(left ? index + 1 : index);
   };
 
   const mergeWithNext = (index: number) => {
@@ -245,13 +257,25 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
                   value={line}
                   onChange={(e) => updateLine(index, e.target.value)}
                   onFocus={() => setSelectedIndex(index)}
+                  onKeyDown={(e) => {
+                    // Enter = split at cursor
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const caret = (e.target as HTMLInputElement).selectionStart ?? line.length;
+                      splitLineAtCursor(index, caret);
+                    }
+                  }}
                 />
                 <div className="line-ops">
                   <button
-                    title="Split line"
+                    title="Split at cursor (or press Enter)"
                     onClick={(e) => {
                       e.stopPropagation();
-                      splitLine(index);
+                      // Find the input in this row and read its caret
+                      const row = (e.currentTarget as HTMLElement).closest('.line-row');
+                      const input = row?.querySelector('input.line-input') as HTMLInputElement | null;
+                      const caret = input?.selectionStart ?? Math.floor(line.length / 2);
+                      splitLineAtCursor(index, caret);
                     }}
                   >
                     ✂️
@@ -310,7 +334,7 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
       </div>
 
       <footer className="lbe-footer text-sm text-muted">
-        Tip: Use Auto-suggest, then fine-tune. Ctrl/Cmd+S to save · Esc to cancel
+        Tip: Place cursor then Enter (or ✂️) to split there · Auto-suggest is optional · Ctrl/Cmd+S save · Esc cancel
       </footer>
     </div>
   );
