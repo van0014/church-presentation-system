@@ -2,7 +2,11 @@ import React from 'react';
 import { usePresentation } from '../../stores/PresentationContext';
 import './ItemDetail.css';
 
-export function ItemDetail() {
+interface Props {
+  onReviewLineBreaks?: (songId: string) => void;
+}
+
+export function ItemDetail({ onReviewLineBreaks }: Props) {
   const { state, getCurrentSong } = usePresentation();
   const item = state.currentItem;
   const song = getCurrentSong();
@@ -46,11 +50,13 @@ export function ItemDetail() {
                 : 'None'}
             </span>
           </div>
-          {!song.lineBreaksReviewed && (
-            <button className="btn btn-secondary text-sm" style={{ marginTop: 12 }}>
-              Review Line Breaks
-            </button>
-          )}
+          <button
+            className="btn btn-secondary text-sm"
+            style={{ marginTop: 12 }}
+            onClick={() => onReviewLineBreaks?.(song.id)}
+          >
+            {song.lineBreaksReviewed ? 'Edit Line Breaks' : 'Review Line Breaks'}
+          </button>
         </div>
       )}
 

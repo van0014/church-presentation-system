@@ -129,7 +129,10 @@ export interface AppSettings {
 
 export interface PresentationState {
   currentPlaylistId: string | null;
+  /** Index of the item that is currently LIVE / presenting */
   currentItemIndex: number;
+  /** Index of the highlighted (selected) item in the playlist – arrows move this */
+  highlightedIndex: number;
   currentSlideIndex: number; // within a multi-slide item (song/scripture)
   isBlack: boolean;
   isClear: boolean;

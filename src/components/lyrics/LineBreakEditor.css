@@ -1,0 +1,275 @@
+.line-break-editor {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  color: var(--text-primary);
+}
+
+.lbe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.lbe-header h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.lbe-song-title {
+  font-size: 1rem;
+  margin-top: 2px;
+}
+
+.lbe-artist {
+  margin-top: 2px;
+}
+
+.lbe-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.lbe-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.lbe-toolbar .active {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.confidence {
+  margin-left: auto;
+  color: var(--text-secondary);
+}
+
+.lbe-notes {
+  padding: 8px 20px;
+  background: rgba(59, 130, 246, 0.1);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.lbe-notes .note + .note {
+  margin-top: 2px;
+}
+
+.lbe-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.raw-textarea {
+  width: 100%;
+  height: 100%;
+  padding: 16px 20px;
+  background: var(--bg-primary);
+  border: none;
+  color: var(--text-primary);
+  font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: none;
+}
+
+.raw-textarea:focus {
+  outline: none;
+}
+
+.lines-list {
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.line-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+  transition: background 0.1s;
+}
+
+.line-row:hover {
+  background: var(--bg-secondary);
+}
+
+.line-row.selected {
+  background: var(--bg-tertiary);
+  outline: 1px solid var(--accent);
+}
+
+.line-num {
+  width: 28px;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.line-input {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 6px 10px;
+  font-size: 0.95rem;
+  border-radius: var(--radius);
+}
+
+.line-input:focus {
+  border-color: var(--border);
+  background: var(--bg-primary);
+  outline: none;
+}
+
+.line-ops {
+  display: flex;
+  gap: 2px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.line-row:hover .line-ops,
+.line-row.selected .line-ops {
+  opacity: 1;
+}
+
+.line-ops button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.line-ops button:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.line-ops button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Preview panel */
+.lbe-preview {
+  border-left: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.preview-label {
+  padding: 12px 14px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.preview-slides {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preview-slide {
+  background: #0a0a0a;
+  border-radius: var(--radius);
+  padding: 16px 14px;
+  text-align: center;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid var(--border);
+}
+
+.slide-num {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preview-line {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #f0f0f0;
+  margin-bottom: 2px;
+}
+
+.preview-line .empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.lbe-footer {
+  padding: 8px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+/* Make buttons consistent with the rest of the app */
+.line-break-editor .btn {
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.line-break-editor .btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.line-break-editor .btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.line-break-editor .btn-secondary {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+
+.line-break-editor .btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+.line-break-editor .btn-ghost {
+  color: var(--text-secondary);
+}
+
+.line-break-editor .btn-ghost:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}

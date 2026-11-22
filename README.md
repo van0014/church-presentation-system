@@ -63,7 +63,7 @@ src/
 
 ## Roadmap (priority order)
 
-1. **Line-break editor** – auto-suggest + human review → save as canonical
+1. **Line-break editor** – ✅ Auto-suggest + human review → save as canonical (implemented)
 2. **Main + Stage output windows**
 3. **Electron / Tauri packaging**
 4. **Google Drive sync** for song library (online source of truth)

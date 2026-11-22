@@ -1,18 +1,52 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePresentation } from '../../stores/PresentationContext';
+import { useBroadcastPresentation } from '../../hooks/useBroadcastPresentation';
 import { PlaylistPanel } from '../playlist/PlaylistPanel';
 import { PreviewPanel } from '../controls/PreviewPanel';
 import { ControlBar } from '../controls/ControlBar';
 import { StatusBar } from '../controls/StatusBar';
 import { ItemDetail } from '../controls/ItemDetail';
+import { LineBreakEditor } from '../lyrics/LineBreakEditor';
+import { AddItemModal } from '../modals/AddItemModal';
+import type { SongLine } from '../../types';
 import './OperatorLayout.css';
 
+function openOutput(role: 'main' | 'stage') {
+  const url = `${window.location.origin}${window.location.pathname}#/${role}`;
+  const features =
+    role === 'main'
+      ? 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no'
+      : 'width=960,height=540,menubar=no,toolbar=no,location=no,status=no';
+  window.open(url, `church-presenter-${role}`, features);
+}
+
 export function OperatorLayout() {
-  const { state } = usePresentation();
+  const { state, dispatch } = usePresentation();
+  const [editingSongId, setEditingSongId] = useState<string | null>(null);
+  const [showAddItem, setShowAddItem] = useState(false);
+
+  // Keep output windows in sync
+  useBroadcastPresentation();
+
+  const editingSong = editingSongId
+    ? state.songs.find((s) => s.id === editingSongId) || null
+    : null;
+
+  const handleSaveLineBreaks = (updatedLines: SongLine[]) => {
+    if (!editingSongId) return;
+    dispatch({
+      type: 'UPDATE_SONG',
+      id: editingSongId,
+      updates: {
+        lines: updatedLines,
+        lineBreaksReviewed: true,
+      },
+    });
+    setEditingSongId(null);
+  };
 
   return (
     <div className="operator-layout">
-      {/* Offline banner */}
       {!state.presentation.isOnline && (
         <div className="offline-banner">
           ⚠ Offline mode — using cached content. Changes will sync when connection returns.
@@ -28,28 +62,33 @@ export function OperatorLayout() {
           <button className="btn btn-ghost" title="Settings">
             ⚙ Settings
           </button>
-          <button className="btn btn-primary" title="Open Main Output">
+          <button
+            className="btn btn-primary"
+            title="Open Main audience output"
+            onClick={() => openOutput('main')}
+          >
             Open Main
           </button>
-          <button className="btn btn-secondary" title="Open Stage Monitor">
+          <button
+            className="btn btn-secondary"
+            title="Open Stage monitor"
+            onClick={() => openOutput('stage')}
+          >
             Open Stage
           </button>
         </div>
       </header>
 
       <div className="operator-body">
-        {/* Left: Playlist */}
         <aside className="panel playlist-panel">
-          <PlaylistPanel />
+          <PlaylistPanel onAddItem={() => setShowAddItem(true)} />
         </aside>
 
-        {/* Center: Preview + Detail */}
         <main className="panel center-panel">
           <PreviewPanel />
-          <ItemDetail />
+          <ItemDetail onReviewLineBreaks={(id) => setEditingSongId(id)} />
         </main>
 
-        {/* Right: Future – song library / media browser */}
         <aside className="panel library-panel">
           <div className="panel-header">
             <h2>Library</h2>
@@ -59,7 +98,7 @@ export function OperatorLayout() {
               Song library, images, videos and scriptures will appear here.
             </p>
             <p className="text-muted text-xs" style={{ marginTop: 8 }}>
-              Google Drive sync + offline cache coming next.
+              Use + Add Item to add songs or scriptures to the playlist.
             </p>
           </div>
         </aside>
@@ -67,6 +106,18 @@ export function OperatorLayout() {
 
       <ControlBar />
       <StatusBar />
+
+      {editingSong && (
+        <LineBreakEditor
+          song={editingSong}
+          onSave={handleSaveLineBreaks}
+          onCancel={() => setEditingSongId(null)}
+        />
+      )}
+
+      {showAddItem && (
+        <AddItemModal onClose={() => setShowAddItem(false)} />
+      )}
     </div>
   );
 }

@@ -88,12 +88,10 @@ const sampleSongs: Song[] = [
     title: 'How Great Thou Art',
     artist: 'Carl Boberg',
     lines: [
-      { id: 'l1', text: 'O Lord my God, when I in awesome wonder' },
-      { id: 'l2', text: 'Consider all the works Thy hands have made' },
-      { id: 'l3', text: 'I see the stars, I hear the rolling thunder' },
-      { id: 'l4', text: 'Thy power throughout the universe displayed' },
-      { id: 'l5', text: 'Then sings my soul, my Saviour God, to Thee' },
-      { id: 'l6', text: 'How great Thou art, how great Thou art' },
+      { id: 'l1', text: 'O Lord my God, when I in awesome wonder consider all the works Thy hands have made' },
+      { id: 'l2', text: 'I see the stars, I hear the rolling thunder Thy power throughout the universe displayed' },
+      { id: 'l3', text: 'Then sings my soul, my Saviour God, to Thee How great Thou art, how great Thou art' },
+      { id: 'l4', text: 'Then sings my soul, my Saviour God, to Thee How great Thou art, how great Thou art' },
     ],
     translations: [],
     lineBreaksReviewed: false,
@@ -187,7 +185,10 @@ interface AppState {
 
 type Action =
   | { type: 'LOAD_PLAYLIST'; playlistId: string }
-  | { type: 'GO_TO_ITEM'; index: number }
+  | { type: 'GO_TO_ITEM'; index: number }          // make live
+  | { type: 'SET_HIGHLIGHT'; index: number }      // arrows only
+  | { type: 'MOVE_HIGHLIGHT'; delta: number }
+  | { type: 'PRESENT_HIGHLIGHTED' }               // Space
   | { type: 'NEXT_ITEM' }
   | { type: 'PREV_ITEM' }
   | { type: 'NEXT_SLIDE' }
@@ -211,6 +212,7 @@ const initialState: AppState = {
   presentation: {
     currentPlaylistId: 'pl-demo',
     currentItemIndex: 0,
+    highlightedIndex: 0,
     currentSlideIndex: 0,
     isBlack: false,
     isClear: false,
@@ -234,6 +236,7 @@ function reducer(state: AppState, action: Action): AppState {
           ...state.presentation,
           currentPlaylistId: action.playlistId,
           currentItemIndex: 0,
+          highlightedIndex: 0,
           currentSlideIndex: 0,
           isBlack: false,
           isClear: false,
@@ -241,6 +244,7 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
     case 'GO_TO_ITEM': {
+      // Make an item LIVE (presenting)
       const playlist = state.currentPlaylist;
       if (!playlist || action.index < 0 || action.index >= playlist.items.length) {
         return state;
@@ -251,11 +255,50 @@ function reducer(state: AppState, action: Action): AppState {
         presentation: {
           ...state.presentation,
           currentItemIndex: action.index,
+          highlightedIndex: action.index, // also move highlight to match
           currentSlideIndex: 0,
           isBlack: false,
           isClear: false,
         },
       };
+    }
+    case 'SET_HIGHLIGHT': {
+      const playlist = state.currentPlaylist;
+      if (!playlist || action.index < 0 || action.index >= playlist.items.length) {
+        return state;
+      }
+      return {
+        ...state,
+        presentation: {
+          ...state.presentation,
+          highlightedIndex: action.index,
+        },
+      };
+    }
+    case 'MOVE_HIGHLIGHT': {
+      const playlist = state.currentPlaylist;
+      if (!playlist) return state;
+      const next = Math.max(
+        0,
+        Math.min(
+          state.presentation.highlightedIndex + action.delta,
+          playlist.items.length - 1
+        )
+      );
+      return {
+        ...state,
+        presentation: {
+          ...state.presentation,
+          highlightedIndex: next,
+        },
+      };
+    }
+    case 'PRESENT_HIGHLIGHTED': {
+      // Space → make the highlighted item live
+      return reducer(state, {
+        type: 'GO_TO_ITEM',
+        index: state.presentation.highlightedIndex,
+      });
     }
     case 'NEXT_ITEM': {
       if (!state.currentPlaylist) return state;
@@ -311,15 +354,18 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'ADD_PLAYLIST':
       return { ...state, playlists: [...state.playlists, action.playlist] };
-    case 'UPDATE_PLAYLIST':
-      return {
-        ...state,
-        playlists: state.playlists.map((p) =>
-          p.id === action.id
-            ? { ...p, ...action.updates, updatedAt: new Date().toISOString() }
-            : p
-        ),
-      };
+    case 'UPDATE_PLAYLIST': {
+      const playlists = state.playlists.map((p) =>
+        p.id === action.id
+          ? { ...p, ...action.updates, updatedAt: new Date().toISOString() }
+          : p
+      );
+      const currentPlaylist =
+        state.currentPlaylist?.id === action.id
+          ? playlists.find((p) => p.id === action.id) || state.currentPlaylist
+          : state.currentPlaylist;
+      return { ...state, playlists, currentPlaylist };
+    }
     case 'SET_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.updates } };
     case 'HYDRATE':
@@ -336,7 +382,10 @@ interface PresentationContextValue {
   dispatch: React.Dispatch<Action>;
   // Convenience helpers
   loadPlaylist: (id: string) => void;
-  goToItem: (index: number) => void;
+  goToItem: (index: number) => void;          // make live
+  setHighlight: (index: number) => void;      // arrows
+  moveHighlight: (delta: number) => void;
+  presentHighlighted: () => void;             // Space
   nextItem: () => void;
   prevItem: () => void;
   nextSlide: () => void;
@@ -395,6 +444,9 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     dispatch,
     loadPlaylist: (id) => dispatch({ type: 'LOAD_PLAYLIST', playlistId: id }),
     goToItem: (index) => dispatch({ type: 'GO_TO_ITEM', index }),
+    setHighlight: (index) => dispatch({ type: 'SET_HIGHLIGHT', index }),
+    moveHighlight: (delta) => dispatch({ type: 'MOVE_HIGHLIGHT', delta }),
+    presentHighlighted: () => dispatch({ type: 'PRESENT_HIGHLIGHTED' }),
     nextItem: () => dispatch({ type: 'NEXT_ITEM' }),
     prevItem: () => dispatch({ type: 'PREV_ITEM' }),
     nextSlide: () => dispatch({ type: 'NEXT_SLIDE' }),
