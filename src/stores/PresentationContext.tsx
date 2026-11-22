@@ -52,49 +52,150 @@ const defaultSettings: AppSettings = {
   },
 };
 
-// Sample songs for demo
+// Sample songs for demo – using section / slide structure
+// (blank line = new slide, [Section] = group in thumbnail view)
 const sampleSongs: Song[] = [
   {
     id: 'song-1',
     title: 'Amazing Grace',
     artist: 'John Newton',
-    lines: [
-      { id: 'l1', text: 'Amazing grace, how sweet the sound' },
-      { id: 'l2', text: 'That saved a wretch like me' },
-      { id: 'l3', text: 'I once was lost, but now am found' },
-      { id: 'l4', text: 'Was blind, but now I see' },
-      { id: 'l5', text: 'Twas grace that taught my heart to fear' },
-      { id: 'l6', text: 'And grace my fears relieved' },
-      { id: 'l7', text: 'How precious did that grace appear' },
-      { id: 'l8', text: 'The hour I first believed' },
+    sections: [
+      {
+        id: 'sec-v1',
+        label: 'Verse 1',
+        slides: [
+          {
+            id: 'sl-1',
+            lines: [
+              { id: 'l1', text: 'Amazing grace, how sweet the sound' },
+              { id: 'l2', text: 'That saved a wretch like me' },
+            ],
+          },
+          {
+            id: 'sl-2',
+            lines: [
+              { id: 'l3', text: 'I once was lost, but now am found' },
+              { id: 'l4', text: 'Was blind, but now I see' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'sec-v2',
+        label: 'Verse 2',
+        slides: [
+          {
+            id: 'sl-3',
+            lines: [
+              { id: 'l5', text: 'Twas grace that taught my heart to fear' },
+              { id: 'l6', text: 'And grace my fears relieved' },
+            ],
+          },
+          {
+            id: 'sl-4',
+            lines: [
+              { id: 'l7', text: 'How precious did that grace appear' },
+              { id: 'l8', text: 'The hour I first believed' },
+            ],
+          },
+        ],
+      },
     ],
     translations: [
       {
         language: 'zh',
         languageName: 'Mandarin',
         displayMode: 'block',
-        lines: [
-          { id: 'z1', text: '奇异恩典，何等甘甜' },
-          { id: 'z2', text: '我罪已得赦免' },
-          { id: 'z3', text: '前我失丧，今被寻回' },
-          { id: 'z4', text: '瞎眼今得看见' },
+        sections: [
+          {
+            id: 'zsec-1',
+            label: 'Verse 1',
+            slides: [
+              {
+                id: 'zsl-1',
+                lines: [
+                  { id: 'z1', text: '奇异恩典，何等甘甜' },
+                  { id: 'z2', text: '我罪已得赦免' },
+                ],
+              },
+              {
+                id: 'zsl-2',
+                lines: [
+                  { id: 'z3', text: '前我失丧，今被寻回' },
+                  { id: 'z4', text: '瞎眼今得看见' },
+                ],
+              },
+            ],
+          },
         ],
       },
     ],
     lineBreaksReviewed: true,
+    rawSource: `[Verse 1]
+Amazing grace, how sweet the sound
+That saved a wretch like me
+
+I once was lost, but now am found
+Was blind, but now I see
+
+[Verse 2]
+Twas grace that taught my heart to fear
+And grace my fears relieved
+
+How precious did that grace appear
+The hour I first believed`,
   },
   {
     id: 'song-2',
     title: 'How Great Thou Art',
     artist: 'Carl Boberg',
-    lines: [
-      { id: 'l1', text: 'O Lord my God, when I in awesome wonder consider all the works Thy hands have made' },
-      { id: 'l2', text: 'I see the stars, I hear the rolling thunder Thy power throughout the universe displayed' },
-      { id: 'l3', text: 'Then sings my soul, my Saviour God, to Thee How great Thou art, how great Thou art' },
-      { id: 'l4', text: 'Then sings my soul, my Saviour God, to Thee How great Thou art, how great Thou art' },
+    sections: [
+      {
+        id: 'sec-v1b',
+        label: 'Verse 1',
+        slides: [
+          {
+            id: 'sl-a',
+            lines: [
+              { id: 'l1', text: 'O Lord my God, when I in awesome wonder' },
+              { id: 'l2', text: 'Consider all the works Thy hands have made' },
+            ],
+          },
+          {
+            id: 'sl-b',
+            lines: [
+              { id: 'l3', text: 'I see the stars, I hear the rolling thunder' },
+              { id: 'l4', text: 'Thy power throughout the universe displayed' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'sec-ch',
+        label: 'Chorus',
+        slides: [
+          {
+            id: 'sl-c',
+            lines: [
+              { id: 'l5', text: 'Then sings my soul, my Saviour God, to Thee' },
+              { id: 'l6', text: 'How great Thou art, how great Thou art' },
+            ],
+          },
+        ],
+      },
     ],
     translations: [],
     lineBreaksReviewed: false,
+    rawSource: `[Verse 1]
+O Lord my God, when I in awesome wonder
+Consider all the works Thy hands have made
+
+I see the stars, I hear the rolling thunder
+Thy power throughout the universe displayed
+
+[Chorus]
+Then sings my soul, my Saviour God, to Thee
+How great Thou art, how great Thou art`,
   },
 ];
 
@@ -185,15 +286,12 @@ interface AppState {
 
 type Action =
   | { type: 'LOAD_PLAYLIST'; playlistId: string }
-  | { type: 'GO_TO_ITEM'; index: number }          // make live
-  | { type: 'SET_HIGHLIGHT'; index: number }      // arrows only
-  | { type: 'MOVE_HIGHLIGHT'; delta: number }
-  | { type: 'PRESENT_HIGHLIGHTED' }               // Space
+  | { type: 'GO_TO_ITEM'; index: number }
   | { type: 'NEXT_ITEM' }
   | { type: 'PREV_ITEM' }
   | { type: 'NEXT_SLIDE' }
   | { type: 'PREV_SLIDE' }
-  | { type: 'SET_SLIDE'; index: number }
+  | { type: 'GO_TO_SLIDE'; index: number }
   | { type: 'SET_BLACK'; value: boolean }
   | { type: 'SET_CLEAR'; value: boolean }
   | { type: 'SET_ONLINE'; value: boolean }
@@ -213,7 +311,6 @@ const initialState: AppState = {
   presentation: {
     currentPlaylistId: 'pl-demo',
     currentItemIndex: 0,
-    highlightedIndex: 0,
     currentSlideIndex: 0,
     isBlack: false,
     isClear: false,
@@ -237,7 +334,6 @@ function reducer(state: AppState, action: Action): AppState {
           ...state.presentation,
           currentPlaylistId: action.playlistId,
           currentItemIndex: 0,
-          highlightedIndex: 0,
           currentSlideIndex: 0,
           isBlack: false,
           isClear: false,
@@ -245,7 +341,6 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
     case 'GO_TO_ITEM': {
-      // Make an item LIVE (presenting)
       const playlist = state.currentPlaylist;
       if (!playlist || action.index < 0 || action.index >= playlist.items.length) {
         return state;
@@ -256,50 +351,11 @@ function reducer(state: AppState, action: Action): AppState {
         presentation: {
           ...state.presentation,
           currentItemIndex: action.index,
-          highlightedIndex: action.index, // also move highlight to match
           currentSlideIndex: 0,
           isBlack: false,
           isClear: false,
         },
       };
-    }
-    case 'SET_HIGHLIGHT': {
-      const playlist = state.currentPlaylist;
-      if (!playlist || action.index < 0 || action.index >= playlist.items.length) {
-        return state;
-      }
-      return {
-        ...state,
-        presentation: {
-          ...state.presentation,
-          highlightedIndex: action.index,
-        },
-      };
-    }
-    case 'MOVE_HIGHLIGHT': {
-      const playlist = state.currentPlaylist;
-      if (!playlist) return state;
-      const next = Math.max(
-        0,
-        Math.min(
-          state.presentation.highlightedIndex + action.delta,
-          playlist.items.length - 1
-        )
-      );
-      return {
-        ...state,
-        presentation: {
-          ...state.presentation,
-          highlightedIndex: next,
-        },
-      };
-    }
-    case 'PRESENT_HIGHLIGHTED': {
-      // Space → make the highlighted item live
-      return reducer(state, {
-        type: 'GO_TO_ITEM',
-        index: state.presentation.highlightedIndex,
-      });
     }
     case 'NEXT_ITEM': {
       if (!state.currentPlaylist) return state;
@@ -329,7 +385,7 @@ function reducer(state: AppState, action: Action): AppState {
           currentSlideIndex: Math.max(0, state.presentation.currentSlideIndex - 1),
         },
       };
-    case 'SET_SLIDE':
+    case 'GO_TO_SLIDE':
       return {
         ...state,
         presentation: {
@@ -365,18 +421,15 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'ADD_PLAYLIST':
       return { ...state, playlists: [...state.playlists, action.playlist] };
-    case 'UPDATE_PLAYLIST': {
-      const playlists = state.playlists.map((p) =>
-        p.id === action.id
-          ? { ...p, ...action.updates, updatedAt: new Date().toISOString() }
-          : p
-      );
-      const currentPlaylist =
-        state.currentPlaylist?.id === action.id
-          ? playlists.find((p) => p.id === action.id) || state.currentPlaylist
-          : state.currentPlaylist;
-      return { ...state, playlists, currentPlaylist };
-    }
+    case 'UPDATE_PLAYLIST':
+      return {
+        ...state,
+        playlists: state.playlists.map((p) =>
+          p.id === action.id
+            ? { ...p, ...action.updates, updatedAt: new Date().toISOString() }
+            : p
+        ),
+      };
     case 'SET_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.updates } };
     case 'HYDRATE':
@@ -393,15 +446,12 @@ interface PresentationContextValue {
   dispatch: React.Dispatch<Action>;
   // Convenience helpers
   loadPlaylist: (id: string) => void;
-  goToItem: (index: number) => void;          // make live
-  setHighlight: (index: number) => void;      // arrows
-  moveHighlight: (delta: number) => void;
-  presentHighlighted: () => void;             // Space
+  goToItem: (index: number) => void;
   nextItem: () => void;
   prevItem: () => void;
   nextSlide: () => void;
   prevSlide: () => void;
-  setSlide: (index: number) => void;
+  goToSlide: (index: number) => void;
   setBlack: (v: boolean) => void;
   setClear: (v: boolean) => void;
   getCurrentSong: () => Song | null;
@@ -456,14 +506,11 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     dispatch,
     loadPlaylist: (id) => dispatch({ type: 'LOAD_PLAYLIST', playlistId: id }),
     goToItem: (index) => dispatch({ type: 'GO_TO_ITEM', index }),
-    setHighlight: (index) => dispatch({ type: 'SET_HIGHLIGHT', index }),
-    moveHighlight: (delta) => dispatch({ type: 'MOVE_HIGHLIGHT', delta }),
-    presentHighlighted: () => dispatch({ type: 'PRESENT_HIGHLIGHTED' }),
     nextItem: () => dispatch({ type: 'NEXT_ITEM' }),
     prevItem: () => dispatch({ type: 'PREV_ITEM' }),
     nextSlide: () => dispatch({ type: 'NEXT_SLIDE' }),
     prevSlide: () => dispatch({ type: 'PREV_SLIDE' }),
-    setSlide: (index: number) => dispatch({ type: 'SET_SLIDE', index }),
+    goToSlide: (index) => dispatch({ type: 'GO_TO_SLIDE', index }),
     setBlack: (v) => dispatch({ type: 'SET_BLACK', value: v }),
     setClear: (v) => dispatch({ type: 'SET_CLEAR', value: v }),
     getCurrentSong: () => {

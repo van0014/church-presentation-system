@@ -34,31 +34,21 @@
   padding: 10px 10px;
   border-radius: var(--radius);
   text-align: left;
-  transition: background 0.12s, box-shadow 0.12s;
+  transition: background 0.12s;
   margin-bottom: 2px;
-  border: 1px solid transparent;
 }
 
 .playlist-item:hover {
   background: var(--bg-hover);
 }
 
-/* Highlight = selection box (arrows move this) */
-.playlist-item.highlighted {
-  background: var(--bg-tertiary);
-  border-color: var(--accent);
-  box-shadow: inset 3px 0 0 var(--accent);
+.playlist-item.active {
+  background: var(--accent);
+  color: white;
 }
 
-/* Live = currently presenting */
-.playlist-item.live {
-  background: rgba(59, 130, 246, 0.18);
-}
-
-.playlist-item.live.highlighted {
-  background: rgba(59, 130, 246, 0.28);
-  border-color: var(--accent);
-  box-shadow: inset 3px 0 0 var(--accent);
+.playlist-item.active .item-type {
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .item-index {
@@ -70,9 +60,8 @@
   flex-shrink: 0;
 }
 
-.playlist-item.highlighted .item-index,
-.playlist-item.live .item-index {
-  color: var(--text-secondary);
+.playlist-item.active .item-index {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .item-icon {
@@ -92,21 +81,10 @@
   font-weight: 500;
 }
 
-.live-badge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  background: var(--accent);
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
 .cue-badge {
   font-size: 0.65rem;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.2);
   padding: 2px 5px;
   border-radius: 4px;
 }

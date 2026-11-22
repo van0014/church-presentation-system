@@ -17,6 +17,11 @@
   letter-spacing: 0.02em;
 }
 
+.song-preview .section-label {
+  opacity: 0.6;
+  font-weight: 400;
+}
+
 .lyrics-block,
 .translation-block {
   max-width: 90%;

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Song, Theme } from '../../types';
+import { getSlideAt, totalSlides } from '../../utils/songText';
 import './SongPreview.css';
 
 interface Props {
@@ -16,12 +17,11 @@ export function SongPreview({
   theme,
   showTranslation = true,
 }: Props) {
-  const linesPerSlide = theme.maxLinesPerSlide || 4;
-  const start = slideIndex * linesPerSlide;
-  const visibleLines = song.lines.slice(start, start + linesPerSlide);
-  const translation = song.translations[0]; // first translation for now
+  const result = getSlideAt(song.sections, slideIndex);
+  const translation = song.translations[0];
+  const total = totalSlides(song.sections);
 
-  if (visibleLines.length === 0) {
+  if (!result) {
     return (
       <div className="song-preview empty">
         <div className="song-title">{song.title}</div>
@@ -29,6 +29,14 @@ export function SongPreview({
       </div>
     );
   }
+
+  const { section, slide } = result;
+
+  // Matching translation slide (same global index) if available
+  const transResult =
+    translation && showTranslation
+      ? getSlideAt(translation.sections, slideIndex)
+      : null;
 
   const textBoxStyle: React.CSSProperties = theme.textBoxEnabled
     ? {
@@ -42,21 +50,22 @@ export function SongPreview({
     <div className="song-preview" style={{ color: theme.textColor }}>
       <div className="song-title" style={{ color: theme.secondaryTextColor }}>
         {song.title}
+        <span className="section-label"> · {section.label}</span>
       </div>
 
       <div className="lyrics-block" style={textBoxStyle}>
-        {visibleLines.map((line) => (
+        {slide.lines.map((line) => (
           <div
             key={line.id}
             className="lyric-line"
-            style={{ fontSize: theme.fontSizeBase * 0.55 }} // scaled for preview
+            style={{ fontSize: theme.fontSizeBase * 0.55 }}
           >
             {line.text}
           </div>
         ))}
       </div>
 
-      {showTranslation && translation && translation.displayMode === 'block' && (
+      {transResult && translation?.displayMode === 'block' && (
         <div
           className="translation-block"
           style={{
@@ -66,18 +75,16 @@ export function SongPreview({
             fontSize: theme.fontSizeBase * 0.4,
           }}
         >
-          {translation.lines
-            .slice(start, start + linesPerSlide)
-            .map((line) => (
-              <div key={line.id} className="lyric-line">
-                {line.text}
-              </div>
-            ))}
+          {transResult.slide.lines.map((line) => (
+            <div key={line.id} className="lyric-line">
+              {line.text}
+            </div>
+          ))}
         </div>
       )}
 
       <div className="slide-indicator">
-        Slide {slideIndex + 1} / {Math.ceil(song.lines.length / linesPerSlide)}
+        {section.label} · Slide {slideIndex + 1} / {total}
       </div>
     </div>
   );

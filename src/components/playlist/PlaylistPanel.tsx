@@ -13,10 +13,10 @@ const typeIcons: Record<string, string> = {
   empty: '⬜',
 };
 
-export function PlaylistPanel({ onAddItem }: { onAddItem?: () => void }) {
-  const { state, setHighlight, presentHighlighted, goToItem } = usePresentation();
+export function PlaylistPanel() {
+  const { state, goToItem } = usePresentation();
   const playlist = state.currentPlaylist;
-  const { currentItemIndex, highlightedIndex } = state.presentation;
+  const currentIndex = state.presentation.currentItemIndex;
 
   if (!playlist) {
     return (
@@ -45,16 +45,14 @@ export function PlaylistPanel({ onAddItem }: { onAddItem?: () => void }) {
             key={item.id}
             item={item}
             index={index}
-            isLive={index === currentItemIndex}
-            isHighlighted={index === highlightedIndex}
-            onHighlight={() => setHighlight(index)}
-            onPresent={() => goToItem(index)}
+            isActive={index === currentIndex}
+            onSelect={() => goToItem(index)}
           />
         ))}
       </div>
 
       <div className="playlist-footer">
-        <button className="btn btn-ghost text-sm" onClick={onAddItem}>+ Add Item</button>
+        <button className="btn btn-ghost text-sm">+ Add Item</button>
         <button className="btn btn-ghost text-sm">Template</button>
       </div>
     </div>
@@ -64,23 +62,19 @@ export function PlaylistPanel({ onAddItem }: { onAddItem?: () => void }) {
 function PlaylistItemRow({
   item,
   index,
-  isLive,
-  isHighlighted,
-  onHighlight,
-  onPresent,
+  isActive,
+  onSelect,
 }: {
   item: PlaylistItem;
   index: number;
-  isLive: boolean;
-  isHighlighted: boolean;
-  onHighlight: () => void;
-  onPresent: () => void;
+  isActive: boolean;
+  onSelect: () => void;
 }) {
   return (
     <button
-      className={`playlist-item ${isHighlighted ? 'highlighted' : ''} ${isLive ? 'live' : ''}`}
-      onClick={onHighlight}
-      onDoubleClick={onPresent}
+      className={`playlist-item ${isActive ? 'active' : ''}`}
+      onClick={onSelect}
+      onDoubleClick={onSelect}
     >
       <span className="item-index">{index + 1}</span>
       <span className="item-icon">{typeIcons[item.type] || '•'}</span>
@@ -88,8 +82,7 @@ function PlaylistItemRow({
         <div className="item-title truncate">{item.title}</div>
         <div className="item-type text-xs text-muted">{item.type}</div>
       </div>
-      {isLive && <span className="live-badge">LIVE</span>}
-      {item.cues?.startCaptions && !isLive && (
+      {item.cues?.startCaptions && (
         <span className="cue-badge" title="Triggers captions">C</span>
       )}
     </button>

@@ -20,7 +20,7 @@ export function StatusBar() {
         )}
       </div>
       <div className="status-right text-xs text-muted">
-        Click to select · Space Present · Arrows = slides · PgUp/Dn = items · B Black · C Clear
+        Keyboard: Space = Next · ←→ = Slides · B = Black · C = Clear
       </div>
     </div>
   );

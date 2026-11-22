@@ -117,6 +117,64 @@
 
 .library-panel {
   background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.library-songs {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+  padding: 6px;
+}
+
+.library-song-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  margin-bottom: 2px;
+  transition: background 0.12s;
+}
+
+.library-song-item:hover {
+  background: var(--bg-hover);
+}
+
+.library-song-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid var(--accent);
+}
+
+.library-song-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.library-song-meta {
+  margin-top: 2px;
+}
+
+.needs-review {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.library-thumbs {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .library-placeholder {

@@ -5,29 +5,21 @@ import './ControlBar.css';
 export function ControlBar() {
   const {
     state,
-    presentHighlighted,
     nextItem,
     prevItem,
     nextSlide,
     prevSlide,
     setBlack,
     setClear,
-    goToItem,
-    setHighlight,
   } = usePresentation();
 
-  const { isBlack, isClear, currentItemIndex, highlightedIndex } =
-    state.presentation;
+  const { isBlack, isClear, currentItemIndex } = state.presentation;
   const total = state.currentPlaylist?.items.length ?? 0;
 
-  // Keyboard model (final):
-  // - Playlist selection: mouse click (or number keys 1-9)
-  // - Space: present highlighted, or next slide if already live
-  // - All arrows: slide navigation within the live item
-  // - B / C: black / clear
-  // - Optional: PageUp/PageDown or dedicated buttons for next/prev item
+  // Keyboard shortcuts
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      // Ignore when typing in inputs
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -38,21 +30,23 @@ export function ControlBar() {
       switch (e.code) {
         case 'Space':
           e.preventDefault();
-          if (highlightedIndex === currentItemIndex) {
-            nextSlide();
-          } else {
-            presentHighlighted();
-          }
+          nextItem();
           break;
         case 'ArrowRight':
-        case 'ArrowDown':
           e.preventDefault();
           nextSlide();
           break;
         case 'ArrowLeft':
-        case 'ArrowUp':
           e.preventDefault();
           prevSlide();
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          nextItem();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          prevItem();
           break;
         case 'KeyB':
           e.preventDefault();
@@ -66,45 +60,18 @@ export function ControlBar() {
           setBlack(false);
           setClear(false);
           break;
-        case 'PageDown':
-          e.preventDefault();
-          nextItem();
-          break;
-        case 'PageUp':
-          e.preventDefault();
-          prevItem();
-          break;
         default:
+          // Number keys for quick jump (1-9)
           if (e.code.startsWith('Digit')) {
             const num = parseInt(e.code.replace('Digit', ''), 10);
             if (num >= 1 && num <= 9) {
-              const idx = num - 1;
-              if (idx < total) {
-                setHighlight(idx);
-                if (e.shiftKey) {
-                  goToItem(idx);
-                }
-              }
+              // Future: support modifier for +9
+              // For now just go to index num-1
             }
           }
       }
     },
-    [
-      presentHighlighted,
-      nextSlide,
-      prevSlide,
-      nextItem,
-      prevItem,
-      setBlack,
-      setClear,
-      isBlack,
-      isClear,
-      highlightedIndex,
-      currentItemIndex,
-      goToItem,
-      setHighlight,
-      total,
-    ]
+    [nextItem, prevItem, nextSlide, prevSlide, setBlack, setClear, isBlack, isClear]
   );
 
   useEffect(() => {
@@ -118,23 +85,17 @@ export function ControlBar() {
         <button
           className="ctrl-btn"
           onClick={prevItem}
-          title="Previous item (PageUp)"
+          title="Previous item (↑)"
+          disabled={currentItemIndex <= 0}
         >
-          ⏮ Item
+          ⏮ Prev
         </button>
         <button
           className="ctrl-btn primary"
-          onClick={() => presentHighlighted()}
-          title="Present highlighted (Space)"
-        >
-          Present
-        </button>
-        <button
-          className="ctrl-btn"
           onClick={nextItem}
-          title="Next item (PageDown)"
+          title="Next item (Space / ↓)"
         >
-          Item ⏭
+          Next ⏭
         </button>
       </div>
 
@@ -142,14 +103,14 @@ export function ControlBar() {
         <button
           className="ctrl-btn"
           onClick={prevSlide}
-          title="Previous slide (← / ↑)"
+          title="Previous slide (←)"
         >
           ◀ Slide
         </button>
         <button
           className="ctrl-btn"
           onClick={nextSlide}
-          title="Next slide (→ / ↓)"
+          title="Next slide (→)"
         >
           Slide ▶
         </button>
@@ -159,7 +120,7 @@ export function ControlBar() {
         <button
           className={`ctrl-btn ${isBlack ? 'active danger' : ''}`}
           onClick={() => setBlack(!isBlack)}
-          title="Black (B)"
+          title="Black screen (B)"
         >
           Black
         </button>
@@ -173,7 +134,7 @@ export function ControlBar() {
       </div>
 
       <div className="control-info text-sm text-muted">
-        Live {currentItemIndex + 1} · Sel {highlightedIndex + 1} / {total}
+        Item {currentItemIndex + 1} / {total}
       </div>
     </div>
   );
