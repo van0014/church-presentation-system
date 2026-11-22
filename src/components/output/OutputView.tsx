@@ -100,10 +100,18 @@ export function OutputView({ role }: { role: OutputRole }) {
             />
           )}
           {item.type === 'image' && (
-            <div className="output-placeholder">
-              <div className="ph-icon">🖼️</div>
-              <div>{item.title}</div>
-            </div>
+            item.source ? (
+              <img
+                src={item.source}
+                alt={item.title}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+              />
+            ) : (
+              <div className="output-placeholder">
+                <div className="ph-icon">🖼️</div>
+                <div>{item.title}</div>
+              </div>
+            )
           )}
           {item.type === 'empty' && <div className="output-placeholder muted" />}
           {(item.type === 'video' || item.type === 'youtube') && (

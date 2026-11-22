@@ -1,36 +1,63 @@
 /**
  * Intelligent line-break suggestions for song lyrics.
  *
- * Goals:
- * - Prefer natural singing / breathing pauses
- * - Avoid single-word lines and very long lines
- * - Keep existing punctuation and capitalization
- * - Produce a reasonable number of lines per slide (usually 2–4)
+ * Domain rules prioritise musical / phonetic phrase sense.
+ * Confidence is intentionally conservative when uncertain.
  */
+
+export type BreakDensity = 'sparse' | 'normal' | 'condensed';
 
 export interface BreakSuggestion {
   lines: string[];
-  /** Confidence 0–1 (higher = more confident in the break points) */
   confidence: number;
   notes?: string[];
+  density: BreakDensity;
+  warnings: string[];
 }
 
-/** Common words that often end a musical phrase */
-const PHRASE_ENDERS = new Set([
-  'and', 'but', 'or', 'yet', 'so', 'for', 'nor',
-  'the', 'a', 'an', 'to', 'of', 'in', 'on', 'at',
-  'my', 'your', 'his', 'her', 'our', 'their',
-  'is', 'are', 'was', 'were', 'be', 'been',
-  'i', 'you', 'he', 'she', 'we', 'they', 'it',
+/** Never end a line on these (function / connective words) */
+const WEAK_ENDERS = new Set([
+  'a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'by', 'with',
+  'from', 'into', 'onto', 'upon', 'over', 'under', 'and', 'but', 'or',
+  'nor', 'yet', 'so', 'as', 'if', 'when', 'while', 'than', 'that',
+  'this', 'these', 'those', 'my', 'your', 'his', 'her', 'our', 'their',
+  'i', 'you', 'he', 'she', 'we', 'they', 'it', 'is', 'are', 'was',
+  'were', 'be', 'been', 'am', 'do', 'does', 'did', 'have', 'has', 'had',
+  'will', 'would', 'shall', 'should', 'can', 'could', 'may', 'might',
+  'must', 'o', 'oh', 'all', 'its', 'let', 'not', 'no', 'nor',
 ]);
 
-/** Strong break indicators (punctuation or conjunctions that almost always end a line) */
-const STRONG_BREAK = /[.!?;:—–]\s*$/;
+/** Prefer to end a line on these content / phrase-final words */
+const STRONG_ENDERS = new Set([
+  'god', 'lord', 'jesus', 'christ', 'father', 'spirit', 'king', 'saviour',
+  'savior', 'wonder', 'thunder', 'grace', 'love', 'peace', 'joy', 'hope',
+  'made', 'displayed', 'believed', 'relieved', 'found', 'see', 'seen',
+  'thee', 'thou', 'art', 'me', 'him', 'us', 'them', 'more', 'adore',
+  'praise', 'glory', 'holy', 'amen', 'forever', 'evermore', 'free',
+  'saved', 'blood', 'cross', 'name', 'power', 'might', 'light', 'night',
+  'day', 'way', 'soul', 'heart', 'voice', 'sing', 'sang', 'song',
+]);
 
-/**
- * Split raw lyrics text into candidate lines.
- * Accepts either already-broken text or a single long paragraph.
- */
+/** Prefer to start a new line with these (clause / phrase starts) */
+const CLAUSE_STARTERS = new Set([
+  'when', 'while', 'consider', 'then', 'and', 'but', 'for', 'that',
+  'who', 'which', 'where', 'how', 'as', 'though', 'although', 'because',
+  'until', 'unless', 'before', 'after', 'since', 'if',
+  'i', 'we', 'he', 'she', 'they', 'you',
+  'o', 'oh', 'come', 'sing', 'praise', 'bless', 'thank',
+]);
+
+const PUNCT_BREAK = /[.!?,;:—–]$/;
+
+const DENSITY_CONFIG: Record<
+  BreakDensity,
+  { maxChars: number; preferMinChars: number }
+> = {
+  sparse: { maxChars: 46, preferMinChars: 20 },
+  normal: { maxChars: 36, preferMinChars: 14 },
+  condensed: { maxChars: 24, preferMinChars: 8 },
+};
+
 export function normalizeRawLyrics(raw: string): string[] {
   return raw
     .replace(/\r\n/g, '\n')
@@ -40,89 +67,142 @@ export function normalizeRawLyrics(raw: string): string[] {
     .filter((l) => l.length > 0);
 }
 
-/**
- * Suggest better line breaks for a set of lines (or a single block).
- *
- * Strategy:
- * 1. If lines are already reasonably short → light cleanup only
- * 2. If many long lines → attempt to split on natural pauses
- * 3. Prefer even-ish distribution and avoid orphan words
- */
+function wordKey(w: string): string {
+  return w.toLowerCase().replace(/[^\w']/g, '');
+}
+
+function endsWeak(line: string): boolean {
+  const last = wordKey(line.split(/\s+/).pop() || '');
+  return WEAK_ENDERS.has(last);
+}
+
+function breakScore(
+  words: string[],
+  wordIndex: number,
+  currentLineLen: number,
+  cfg: { maxChars: number; preferMinChars: number }
+): number {
+  if (wordIndex < 0 || wordIndex >= words.length - 1) return -200;
+
+  const word = words[wordIndex];
+  const key = wordKey(word);
+  const nextKey = wordKey(words[wordIndex + 1] || '');
+  let score = 0;
+
+  if (PUNCT_BREAK.test(word)) score += 60;
+  if (STRONG_ENDERS.has(key)) score += 24;
+  if (WEAK_ENDERS.has(key)) score -= 70; // almost never
+  if (WEAK_ENDERS.has(nextKey)) score -= 12;
+  if (CLAUSE_STARTERS.has(nextKey) && currentLineLen >= cfg.preferMinChars) {
+    score += 20;
+  }
+
+  const ratio = currentLineLen / cfg.maxChars;
+  if (ratio > 0.92) score += 28;
+  else if (ratio > 0.72) score += 12;
+  else if (ratio < 0.28) score -= 22;
+
+  if (currentLineLen >= cfg.preferMinChars) score += 10;
+
+  return score;
+}
+
 export function suggestLineBreaks(
   input: string | string[],
-  options: {
-    targetLinesPerSlide?: number;
-    maxCharsPerLine?: number;
-    preferEven?: boolean;
-  } = {}
+  options: { density?: BreakDensity; maxCharsPerLine?: number } = {}
 ): BreakSuggestion {
-  const {
-    targetLinesPerSlide = 4,
-    maxCharsPerLine = 42,
-    preferEven = true,
-  } = options;
+  const density: BreakDensity = options.density || 'normal';
+  const cfg = { ...DENSITY_CONFIG[density] };
+  if (options.maxCharsPerLine) cfg.maxChars = options.maxCharsPerLine;
 
   const rawLines = Array.isArray(input) ? input : normalizeRawLyrics(input);
   const notes: string[] = [];
+  const warnings: string[] = [];
 
-  // Flatten everything into words while remembering original structure
   const allText = rawLines.join(' ').replace(/\s+/g, ' ').trim();
   if (!allText) {
-    return { lines: [], confidence: 0, notes: ['Empty input'] };
-  }
-
-  // If the input already has short, sensible lines, keep most of them
-  const avgLen = rawLines.reduce((s, l) => s + l.length, 0) / rawLines.length;
-  if (rawLines.length >= 3 && avgLen <= maxCharsPerLine * 1.15) {
-    // Minor cleanup only
-    const cleaned = rawLines.map((l) => l.replace(/\s+/g, ' ').trim());
     return {
-      lines: cleaned,
-      confidence: 0.85,
-      notes: ['Input already well-structured – light cleanup applied'],
+      lines: [],
+      confidence: 0,
+      notes: ['Empty input'],
+      density,
+      warnings: ['No text to process'],
     };
   }
 
-  // Otherwise rebuild from words
   const words = allText.split(/\s+/);
-  const result: string[] = [];
-  let current = '';
+  const lines: string[] = [];
+  let start = 0;
 
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
-    const tentative = current ? `${current} ${word}` : word;
+  while (start < words.length) {
+    let bestBreak = -1;
+    let bestScore = -Infinity;
+    let line = '';
 
-    const isStrong = STRONG_BREAK.test(word);
-    const isPhraseEnd =
-      PHRASE_ENDERS.has(word.toLowerCase().replace(/[^\w]/g, '')) &&
-      current.length > 12;
+    for (let i = start; i < words.length; i++) {
+      const nextLine = line ? `${line} ${words[i]}` : words[i];
+      if (nextLine.length > cfg.maxChars && line) {
+        if (bestBreak < start) bestBreak = i - 1;
+        break;
+      }
 
-    if (tentative.length > maxCharsPerLine && current) {
-      // Force a break before this word
-      result.push(current);
-      current = word;
-    } else if (isStrong && current.length > 8) {
-      result.push(tentative);
-      current = '';
-    } else if (isPhraseEnd && current.length > 18) {
-      // Soft break after a phrase-ending word when the line is already decent length
-      result.push(tentative);
-      current = '';
-    } else {
-      current = tentative;
+      line = nextLine;
+      const score = breakScore(words, i, line.length, cfg);
+
+      if (i < words.length - 1 && score > bestScore) {
+        bestScore = score;
+        bestBreak = i;
+      }
+
+      // Hard stop on punctuation once we have a minimal phrase
+      if (
+        PUNCT_BREAK.test(words[i]) &&
+        line.length >= Math.min(10, cfg.preferMinChars) &&
+        i < words.length - 1
+      ) {
+        bestBreak = i;
+        bestScore = score + 100;
+        break;
+      }
+
+      if (
+        line.length >= cfg.preferMinChars &&
+        score >= 28 &&
+        i < words.length - 1
+      ) {
+        bestBreak = i;
+        bestScore = score;
+        if (score >= 45) break;
+      }
     }
+
+    if (bestBreak < start) {
+      lines.push(words.slice(start).join(' '));
+      break;
+    }
+
+    // If chosen break ends weak, try to extend one word when possible
+    let end = bestBreak;
+    if (endsWeak(words.slice(start, end + 1).join(' ')) && end + 1 < words.length) {
+      const extended = words.slice(start, end + 2).join(' ');
+      if (extended.length <= cfg.maxChars + 8) {
+        end = end + 1;
+      }
+    }
+
+    lines.push(words.slice(start, end + 1).join(' '));
+    start = end + 1;
   }
 
-  if (current) result.push(current);
-
-  // Post-process: merge very short trailing lines
+  // Merge tiny orphans
   const final: string[] = [];
-  for (let i = 0; i < result.length; i++) {
-    const line = result[i];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const wc = line.split(/\s+/).length;
     if (
-      line.split(/\s+/).length <= 2 &&
+      wc <= 2 &&
       final.length > 0 &&
-      final[final.length - 1].length + line.length < maxCharsPerLine
+      final[final.length - 1].length + line.length + 1 <= cfg.maxChars + 8
     ) {
       final[final.length - 1] += ' ' + line;
     } else {
@@ -130,29 +210,59 @@ export function suggestLineBreaks(
     }
   }
 
-  // Optional: try to balance for target lines per slide
-  if (preferEven && final.length > targetLinesPerSlide) {
-    notes.push(
-      `Produced ${final.length} lines (target ~${targetLinesPerSlide} per slide)`
+  // --- Conservative confidence + warnings ---
+  let confidence = 0.55; // start modest
+  const weakEnds = final.filter(endsWeak);
+  const longLines = final.filter((l) => l.length > cfg.maxChars * 1.15);
+  const shortLines = final.filter((l) => l.split(/\s+/).length <= 2);
+
+  if (weakEnds.length === 0) confidence += 0.12;
+  else {
+    confidence -= 0.08 * weakEnds.length;
+    warnings.push(
+      `${weakEnds.length} line(s) end on a weak word — check rhythm`
     );
   }
 
-  const confidence =
-    final.length >= 2 && final.every((l) => l.length <= maxCharsPerLine * 1.3)
-      ? 0.75
-      : 0.55;
+  if (longLines.length) {
+    confidence -= 0.06 * longLines.length;
+    warnings.push(`${longLines.length} line(s) longer than target density`);
+  }
+
+  if (shortLines.length > 1) {
+    confidence -= 0.04;
+    warnings.push('Some very short lines — consider merging');
+  }
+
+  // If input already had sensible breaks, be less assertive
+  const avgIn =
+    rawLines.reduce((s, l) => s + l.length, 0) / Math.max(1, rawLines.length);
+  if (rawLines.length >= 3 && avgIn <= cfg.maxChars * 1.1) {
+    notes.push('Input already had structure — suggestion may be aggressive');
+    confidence -= 0.08;
+  }
+
+  confidence = Math.max(0.25, Math.min(0.82, confidence));
+
+  notes.push(`Density: ${density} (~${cfg.maxChars} chars/line)`);
+  if (confidence < 0.5) {
+    warnings.push('Low confidence — manual review strongly recommended');
+  } else if (confidence < 0.65) {
+    warnings.push('Medium confidence — please review before saving');
+  }
 
   return {
     lines: final,
     confidence,
-    notes: notes.length ? notes : undefined,
+    notes,
+    density,
+    warnings,
   };
 }
 
-/**
- * Convert an array of plain strings into SongLine objects with stable ids.
- */
-export function linesToSongLines(lines: string[]): { id: string; text: string }[] {
+export function linesToSongLines(
+  lines: string[]
+): { id: string; text: string }[] {
   return lines.map((text, i) => ({
     id: `line-${Date.now()}-${i}`,
     text,

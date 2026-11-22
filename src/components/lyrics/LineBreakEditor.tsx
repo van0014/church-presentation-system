@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Song, SongLine } from '../../types';
-import { suggestLineBreaks, linesToSongLines, normalizeRawLyrics } from '../../utils/lineBreaks';
+import { suggestLineBreaks, linesToSongLines, normalizeRawLyrics, type BreakDensity } from '../../utils/lineBreaks';
 import './LineBreakEditor.css';
 
 interface Props {
@@ -16,6 +16,8 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
   const [suggestionNotes, setSuggestionNotes] = useState<string[]>([]);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [density, setDensity] = useState<BreakDensity>('normal');
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   // Initialise from song. If the song still needs review, run auto-suggest immediately.
   useEffect(() => {
@@ -29,8 +31,7 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
     // Auto-run suggestion for songs that have not been reviewed yet
     if (!song.lineBreaksReviewed) {
       const result = suggestLineBreaks(texts, {
-        targetLinesPerSlide: 4,
-        maxCharsPerLine: 40,
+        density: 'normal',
       });
       setDraftLines(result.lines);
       setRawText(result.lines.join('\n'));
@@ -39,21 +40,22 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
         'Auto-suggestion applied (song needs review). Adjust as needed, then Save.',
         ...(result.notes || []),
       ]);
+      setWarnings(result.warnings || []);
     }
   }, [song]);
 
-  const applySuggestion = useCallback(() => {
+  const applySuggestion = useCallback((d?: BreakDensity) => {
+    const useDensity = d || density;
     const source = rawMode ? rawText : draftLines.join('\n');
-    const result = suggestLineBreaks(source, {
-      targetLinesPerSlide: 4,
-      maxCharsPerLine: 40,
-    });
+    const result = suggestLineBreaks(source, { density: useDensity });
     setDraftLines(result.lines);
     setRawText(result.lines.join('\n'));
     setConfidence(result.confidence);
-    setSuggestionNotes(result.notes || ['Suggestion re-applied']);
+    setSuggestionNotes(result.notes || ['Suggestion applied']);
+    setWarnings(result.warnings || []);
     setSelectedIndex(null);
-  }, [rawMode, rawText, draftLines]);
+    if (d) setDensity(d);
+  }, [rawMode, rawText, draftLines, density]);
 
   const updateLine = (index: number, value: string) => {
     const next = [...draftLines];
@@ -160,9 +162,34 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
       </header>
 
       <div className="lbe-toolbar">
-        <button className="btn btn-secondary" onClick={applySuggestion} title="Re-run intelligent line-break suggestions">
+        <button
+          className="btn btn-secondary"
+          onClick={() => applySuggestion()}
+          title="Re-run intelligent line-break suggestions"
+        >
           {confidence !== null ? 'Re-run Auto-suggest' : 'Auto-suggest breaks'}
         </button>
+
+        <div className="density-group">
+          <span className="density-label">Density</span>
+          {(['sparse', 'normal', 'condensed'] as BreakDensity[]).map((d) => (
+            <button
+              key={d}
+              className={`btn btn-ghost density-btn ${density === d ? 'active' : ''}`}
+              onClick={() => applySuggestion(d)}
+              title={
+                d === 'sparse'
+                  ? 'Longer lines, fewer breaks'
+                  : d === 'condensed'
+                    ? 'Shorter lines, more breaks'
+                    : 'Balanced phrase breaks'
+              }
+            >
+              {d.charAt(0).toUpperCase() + d.slice(1)}
+            </button>
+          ))}
+        </div>
+
         <button
           className={`btn btn-ghost ${rawMode ? 'active' : ''}`}
           onClick={() => setRawMode(!rawMode)}
@@ -181,6 +208,15 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
           {suggestionNotes.map((n, i) => (
             <div key={i} className="note">
               {n}
+            </div>
+          ))}
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <div className="lbe-warnings">
+          {warnings.map((w, i) => (
+            <div key={i} className="warning">
+              ⚠ {w}
             </div>
           ))}
         </div>

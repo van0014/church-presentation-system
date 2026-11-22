@@ -42,13 +42,21 @@ export function PreviewPanel() {
               />
             )}
             {item.type === 'image' && (
-              <div className="preview-placeholder">
-                <div className="placeholder-icon">🖼️</div>
-                <div>{item.title}</div>
-                <div className="text-xs text-muted" style={{ marginTop: 8 }}>
-                  Image preview
+              item.source ? (
+                <img
+                  src={item.source}
+                  alt={item.title}
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                />
+              ) : (
+                <div className="preview-placeholder">
+                  <div className="placeholder-icon">🖼️</div>
+                  <div>{item.title}</div>
+                  <div className="text-xs text-muted" style={{ marginTop: 8 }}>
+                    No image uploaded
+                  </div>
                 </div>
-              </div>
+              )
             )}
             {item.type === 'empty' && (
               <div className="preview-placeholder muted">

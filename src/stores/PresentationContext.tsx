@@ -193,6 +193,7 @@ type Action =
   | { type: 'PREV_ITEM' }
   | { type: 'NEXT_SLIDE' }
   | { type: 'PREV_SLIDE' }
+  | { type: 'SET_SLIDE'; index: number }
   | { type: 'SET_BLACK'; value: boolean }
   | { type: 'SET_CLEAR'; value: boolean }
   | { type: 'SET_ONLINE'; value: boolean }
@@ -328,6 +329,16 @@ function reducer(state: AppState, action: Action): AppState {
           currentSlideIndex: Math.max(0, state.presentation.currentSlideIndex - 1),
         },
       };
+    case 'SET_SLIDE':
+      return {
+        ...state,
+        presentation: {
+          ...state.presentation,
+          currentSlideIndex: Math.max(0, action.index),
+          isBlack: false,
+          isClear: false,
+        },
+      };
     case 'SET_BLACK':
       return {
         ...state,
@@ -390,6 +401,7 @@ interface PresentationContextValue {
   prevItem: () => void;
   nextSlide: () => void;
   prevSlide: () => void;
+  setSlide: (index: number) => void;
   setBlack: (v: boolean) => void;
   setClear: (v: boolean) => void;
   getCurrentSong: () => Song | null;
@@ -451,6 +463,7 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     prevItem: () => dispatch({ type: 'PREV_ITEM' }),
     nextSlide: () => dispatch({ type: 'NEXT_SLIDE' }),
     prevSlide: () => dispatch({ type: 'PREV_SLIDE' }),
+    setSlide: (index: number) => dispatch({ type: 'SET_SLIDE', index }),
     setBlack: (v) => dispatch({ type: 'SET_BLACK', value: v }),
     setClear: (v) => dispatch({ type: 'SET_CLEAR', value: v }),
     getCurrentSong: () => {

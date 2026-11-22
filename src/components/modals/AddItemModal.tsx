@@ -27,6 +27,11 @@ export function AddItemModal({ onClose }: Props) {
   const [secondaryCode, setSecondaryCode] = useState('CUV');
   const [secondaryText, setSecondaryText] = useState('');
 
+  // Image form
+  const [imageTitle, setImageTitle] = useState('QR / Image');
+  const [imageDataUrl, setImageDataUrl] = useState('');
+  const [imageCaptions, setImageCaptions] = useState(false);
+
   const addSong = () => {
     if (!songTitle.trim() || !songLyrics.trim()) return;
 
@@ -158,6 +163,41 @@ export function AddItemModal({ onClose }: Props) {
     onClose();
   };
 
+
+  const onFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageDataUrl(String(reader.result || ''));
+      if (!imageTitle || imageTitle === 'QR / Image') {
+        setImageTitle(file.name.replace(/\.[^.]+$/, '') || 'Image');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const addImage = () => {
+    if (!imageDataUrl) return;
+    const item: PlaylistItem = {
+      id: `item-${Date.now()}`,
+      type: 'image',
+      title: imageTitle.trim() || 'Image',
+      source: imageDataUrl,
+      order: state.currentPlaylist?.items.length ?? 0,
+      cues: imageCaptions ? { startCaptions: true } : undefined,
+    };
+    if (state.currentPlaylist) {
+      dispatch({
+        type: 'UPDATE_PLAYLIST',
+        id: state.currentPlaylist.id,
+        updates: {
+          items: [...state.currentPlaylist.items, item],
+        },
+      });
+    }
+    onClose();
+  };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -167,13 +207,13 @@ export function AddItemModal({ onClose }: Props) {
         </header>
 
         <div className="modal-tabs">
-          {(['song', 'scripture', 'empty'] as Tab[]).map((t) => (
+          {(['song', 'scripture', 'image', 'empty'] as Tab[]).map((t) => (
             <button
               key={t}
               className={`tab ${tab === t ? 'active' : ''}`}
               onClick={() => setTab(t)}
             >
-              {t === 'song' ? 'Song' : t === 'scripture' ? 'Scripture' : 'Blank'}
+              {t === 'song' ? 'Song' : t === 'scripture' ? 'Scripture' : t === 'image' ? 'Image' : 'Blank'}
             </button>
           ))}
         </div>
@@ -281,6 +321,49 @@ export function AddItemModal({ onClose }: Props) {
               <div className="form-actions">
                 <button className="btn btn-primary" onClick={addScripture}>
                   Add Scripture to Playlist
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'image' && (
+            <div className="form">
+              <label>
+                Title
+                <input
+                  value={imageTitle}
+                  onChange={(e) => setImageTitle(e.target.value)}
+                  placeholder="QR Translation / Welcome / etc."
+                />
+              </label>
+              <label>
+                Image file
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => onFile(e.target.files?.[0] || null)}
+                />
+              </label>
+              {imageDataUrl && (
+                <div className="image-preview-box">
+                  <img src={imageDataUrl} alt="preview" />
+                </div>
+              )}
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={imageCaptions}
+                  onChange={(e) => setImageCaptions(e.target.checked)}
+                />
+                Trigger captions / Stream Deck when presented
+              </label>
+              <div className="form-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={addImage}
+                  disabled={!imageDataUrl}
+                >
+                  Add Image to Playlist
                 </button>
               </div>
             </div>

@@ -72,3 +72,71 @@
   border-radius: 4px;
   margin-right: 6px;
 }
+
+.verse-lineup {
+  margin-top: 14px;
+}
+
+.verse-lineup-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.verse-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.verse-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  font-size: 0.8rem;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.verse-chip:hover {
+  background: var(--bg-hover);
+}
+
+.verse-chip.active {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.verse-chip-num {
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 18px;
+  flex-shrink: 0;
+}
+
+.verse-chip-preview {
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.image-thumb-wrap {
+  margin-top: 8px;
+}
+
+.image-thumb {
+  max-width: 100%;
+  max-height: 120px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  object-fit: contain;
+  background: #000;
+}
