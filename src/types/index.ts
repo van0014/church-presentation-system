@@ -33,11 +33,9 @@ export interface SongSection {
 }
 
 export interface Translation {
-  language: string; // e.g. 'zh', 'es'
+  language: string;
   languageName: string;
-  /** Same section/slide structure as the primary lyrics */
   sections: SongSection[];
-  /** Whole-block vs line-by-line display preference */
   displayMode: 'block' | 'interleaved';
 }
 
@@ -46,28 +44,20 @@ export interface Song {
   title: string;
   artist?: string;
   ccli?: string;
-  /**
-   * Canonical structure:
-   * - [Section] headers → SongSection (groups in thumbnail view)
-   * - blank line inside a section → new SongSlide
-   */
   sections: SongSection[];
   translations: Translation[];
-  /** Whether line breaks / slide breaks have been human-reviewed */
   lineBreaksReviewed: boolean;
-  /** Raw source text (SongSelect-style) kept for round-trip editing */
   rawSource?: string;
   tags?: string[];
-  lastUsed?: string; // ISO date
+  lastUsed?: string;
   googleDriveFileId?: string;
 }
 
 export interface Scripture {
   id: string;
-  reference: string; // e.g. "John 3:16-18"
-  translation: string; // e.g. "NIV", "ESV", "CUV"
+  reference: string;
+  translation: string;
   verses: { number: number; text: string }[];
-  /** Optional second translation for side-by-side / below */
   secondaryTranslation?: {
     code: string;
     verses: { number: number; text: string }[];
@@ -78,17 +68,12 @@ export interface MediaItem {
   id: string;
   type: MediaType;
   title: string;
-  /** For songs */
   songId?: string;
-  /** For scriptures */
   scripture?: Scripture;
-  /** For image / video / youtube */
-  source?: string; // local path, URL, or YouTube ID
+  source?: string;
   thumbnail?: string;
-  duration?: number; // seconds
-  /** Looping video flag */
+  duration?: number;
   loop?: boolean;
-  /** Stream Deck / cue triggers */
   cues?: {
     streamDeckAction?: string;
     lightingScene?: string;
@@ -99,14 +84,13 @@ export interface MediaItem {
 
 export interface PlaylistItem extends MediaItem {
   order: number;
-  /** Optional override theme for this item */
   themeOverrideId?: string;
 }
 
 export interface Playlist {
   id: string;
   name: string;
-  date?: string; // ISO date for Sunday services
+  date?: string;
   items: PlaylistItem[];
   isTemplate?: boolean;
   createdAt: string;
@@ -117,24 +101,22 @@ export interface Theme {
   id: string;
   name: string;
   isDefault?: boolean;
-  // Visual
   backgroundColor: string;
   backgroundImage?: string;
   textColor: string;
   secondaryTextColor: string;
   fontFamily: string;
-  fontSizeBase: number; // px
-  // Text backing box
+  fontSizeBase: number;
+  letterSpacing?: number;
+  wordSpacing?: number;
   textBoxEnabled: boolean;
   textBoxColor: string;
-  textBoxOpacity: number; // 0-1
+  textBoxOpacity: number;
   textBoxPadding: number;
   textBoxBorderRadius: number;
-  // Layout
   lyricsPosition: 'center' | 'lower-third' | 'top' | 'bottom';
   scriptureLayout: 'centered' | 'side-by-side' | 'stacked';
   maxLinesPerSlide: number;
-  // Opacity / transitions
   transitionMs: number;
 }
 
@@ -151,7 +133,7 @@ export interface Venue {
 export interface AppSettings {
   currentVenueId?: string;
   defaultThemeId: string;
-  preferredBibleTranslations: string[]; // e.g. ['NIV', 'ESV', 'CUV']
+  preferredBibleTranslations: string[];
   cacheMode: 'full' | 'day' | 'selective';
   offlineWarningEnabled: boolean;
   youtubeQuality: '1080p' | '720p' | 'best';
@@ -161,7 +143,7 @@ export interface AppSettings {
 export interface PresentationState {
   currentPlaylistId: string | null;
   currentItemIndex: number;
-  currentSlideIndex: number; // within a multi-slide item (song/scripture)
+  currentSlideIndex: number;
   isBlack: boolean;
   isClear: boolean;
   isOnline: boolean;
@@ -169,12 +151,11 @@ export interface PresentationState {
   mainVisible: boolean;
 }
 
-// For multi-window communication
 export type WindowMessage =
   | { type: 'PRESENTATION_UPDATE'; payload: PresentationState & { item?: PlaylistItem; song?: Song; scripture?: Scripture } }
   | { type: 'THEME_UPDATE'; payload: Theme }
-  | { type: 'BLACK'; }
-  | { type: 'CLEAR'; }
+  | { type: 'BLACK' }
+  | { type: 'CLEAR' }
   | { type: 'NEXT' }
   | { type: 'PREV' }
   | { type: 'GOTO'; index: number };
