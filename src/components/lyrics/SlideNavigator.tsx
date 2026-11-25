@@ -1,19 +1,20 @@
 import React from 'react';
 import { usePresentation } from '../../stores/PresentationContext';
-import type { Song, Scripture, PlaylistItem } from '../../types';
-import { getSlideAt, totalSlides } from '../../utils/songText';
+import type { Song, Scripture } from '../../types';
+import { totalSlides } from '../../utils/songText';
 import './SlideNavigator.css';
 
 /**
  * Large file-manager style navigator.
- * Sections are groups; slides are big readable cards.
- * This is the primary operator surface — no duplicate of the audience screen.
+ * - Cursor (preview): where arrows point — guide only
+ * - Presented (live): what Main/Stage show — set by Space
+ * Click a card = move cursor only (does not take live until Space)
  */
 export function SlideNavigator() {
-  const { state, goToSlide, getCurrentSong } = usePresentation();
+  const { state, goToSlide, presentAt, getCurrentSong } = usePresentation();
   const item = state.currentItem;
   const song = getCurrentSong();
-  const currentSlide = state.presentation.currentSlideIndex;
+  const { currentSlideIndex, cursorSlideIndex } = state.presentation;
 
   if (!item) {
     return (
@@ -27,8 +28,10 @@ export function SlideNavigator() {
     return (
       <SongSlideNavigator
         song={song}
-        currentSlideIndex={currentSlide}
-        onSelect={goToSlide}
+        cursorIndex={cursorSlideIndex}
+        presentedIndex={currentSlideIndex}
+        onCursor={goToSlide}
+        onPresent={presentAt}
       />
     );
   }
@@ -37,16 +40,17 @@ export function SlideNavigator() {
     return (
       <ScriptureSlideNavigator
         scripture={item.scripture}
-        currentSlideIndex={currentSlide}
-        onSelect={goToSlide}
+        cursorIndex={cursorSlideIndex}
+        presentedIndex={currentSlideIndex}
+        onCursor={goToSlide}
+        onPresent={presentAt}
       />
     );
   }
 
-  // Generic media item
   return (
     <div className="slide-nav generic">
-      <div className="generic-card active">
+      <div className="generic-card presented">
         <div className="generic-type">{item.type}</div>
         <div className="generic-title">{item.title}</div>
       </div>
@@ -56,12 +60,16 @@ export function SlideNavigator() {
 
 function SongSlideNavigator({
   song,
-  currentSlideIndex,
-  onSelect,
+  cursorIndex,
+  presentedIndex,
+  onCursor,
+  onPresent,
 }: {
   song: Song;
-  currentSlideIndex: number;
-  onSelect: (i: number) => void;
+  cursorIndex: number;
+  presentedIndex: number;
+  onCursor: (i: number) => void;
+  onPresent: (i: number) => void;
 }) {
   let running = 0;
 
@@ -74,6 +82,10 @@ function SongSlideNavigator({
           {!song.lineBreaksReviewed && (
             <span className="needs-review"> · needs review</span>
           )}
+          {' · '}
+          <span className="legend-cursor">cursor</span>
+          {' / '}
+          <span className="legend-live">live</span>
         </span>
       </div>
 
@@ -88,14 +100,29 @@ function SongSlideNavigator({
               <div className="nav-cards">
                 {section.slides.map((slide, si) => {
                   const idx = start + si;
-                  const active = idx === currentSlideIndex;
+                  const isCursor = idx === cursorIndex;
+                  const isLive = idx === presentedIndex;
                   return (
                     <button
                       key={slide.id}
-                      className={`nav-card ${active ? 'active' : ''}`}
-                      onClick={() => onSelect(idx)}
+                      className={`nav-card ${isCursor ? 'cursor' : ''} ${
+                        isLive ? 'presented' : ''
+                      }`}
+                      onClick={() => onCursor(idx)}
+                      onDoubleClick={() => onPresent(idx)}
+                      title={
+                        isLive
+                          ? 'Live on Main/Stage · click to set cursor'
+                          : 'Click = cursor · double-click = present'
+                      }
                     >
-                      <div className="nav-card-index">{si + 1}</div>
+                      <div className="nav-card-index">
+                        {si + 1}
+                        {isLive && <span className="badge-live">live</span>}
+                        {isCursor && !isLive && (
+                          <span className="badge-cursor">cursor</span>
+                        )}
+                      </div>
                       <div className="nav-card-lines">
                         {slide.lines.length === 0 ? (
                           <span className="nav-empty">(empty)</span>
@@ -121,12 +148,16 @@ function SongSlideNavigator({
 
 function ScriptureSlideNavigator({
   scripture,
-  currentSlideIndex,
-  onSelect,
+  cursorIndex,
+  presentedIndex,
+  onCursor,
+  onPresent,
 }: {
   scripture: Scripture;
-  currentSlideIndex: number;
-  onSelect: (i: number) => void;
+  cursorIndex: number;
+  presentedIndex: number;
+  onCursor: (i: number) => void;
+  onPresent: (i: number) => void;
 }) {
   return (
     <div className="slide-nav">
@@ -145,15 +176,25 @@ function ScriptureSlideNavigator({
         <div className="nav-section">
           <div className="nav-cards">
             {scripture.verses.map((verse, i) => {
-              const active = i === currentSlideIndex;
+              const isCursor = i === cursorIndex;
+              const isLive = i === presentedIndex;
               const secondary = scripture.secondaryTranslation?.verses[i];
               return (
                 <button
                   key={verse.number}
-                  className={`nav-card scripture-card ${active ? 'active' : ''}`}
-                  onClick={() => onSelect(i)}
+                  className={`nav-card scripture-card ${isCursor ? 'cursor' : ''} ${
+                    isLive ? 'presented' : ''
+                  }`}
+                  onClick={() => onCursor(i)}
+                  onDoubleClick={() => onPresent(i)}
                 >
-                  <div className="nav-card-index">{verse.number}</div>
+                  <div className="nav-card-index">
+                    {verse.number}
+                    {isLive && <span className="badge-live">live</span>}
+                    {isCursor && !isLive && (
+                      <span className="badge-cursor">cursor</span>
+                    )}
+                  </div>
                   <div className="nav-card-lines">
                     <div className="nav-line">{verse.text}</div>
                     {secondary && (

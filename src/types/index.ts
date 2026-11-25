@@ -166,7 +166,13 @@ export interface AppSettings {
 export interface PresentationState {
   currentPlaylistId: string | null;
   currentItemIndex: number;
-  currentSlideIndex: number; // within a multi-slide item (song/scripture)
+  /** Slide currently shown on Main / Stage (live) */
+  currentSlideIndex: number;
+  /**
+   * Operator cursor within the current item (preview highlight).
+   * Arrows move this; Space commits it to currentSlideIndex (presented).
+   */
+  cursorSlideIndex: number;
   isBlack: boolean;
   isClear: boolean;
   isOnline: boolean;

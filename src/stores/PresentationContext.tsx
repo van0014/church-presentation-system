@@ -294,6 +294,10 @@ type Action =
   | { type: 'NEXT_SLIDE' }
   | { type: 'PREV_SLIDE' }
   | { type: 'GO_TO_SLIDE'; index: number }
+  | { type: 'MOVE_CURSOR'; index: number }
+  | { type: 'PRESENT_CURSOR' }
+  | { type: 'PRESENT_AT'; index: number }
+  | { type: 'SYNC_LIVE'; itemIndex: number; slideIndex: number; cursorIndex: number; isBlack: boolean; isClear: boolean; playlistId?: string | null }
   | { type: 'SET_BLACK'; value: boolean }
   | { type: 'SET_CLEAR'; value: boolean }
   | { type: 'SET_ONLINE'; value: boolean }
@@ -315,6 +319,7 @@ const initialState: AppState = {
     currentPlaylistId: 'pl-demo',
     currentItemIndex: 0,
     currentSlideIndex: 0,
+    cursorSlideIndex: 0,
     isBlack: false,
     isClear: false,
     isOnline: true,
@@ -338,6 +343,7 @@ function reducer(state: AppState, action: Action): AppState {
           currentPlaylistId: action.playlistId,
           currentItemIndex: 0,
           currentSlideIndex: 0,
+          cursorSlideIndex: 0,
           isBlack: false,
           isClear: false,
         },
@@ -355,6 +361,7 @@ function reducer(state: AppState, action: Action): AppState {
           ...state.presentation,
           currentItemIndex: action.index,
           currentSlideIndex: 0,
+          cursorSlideIndex: 0,
           isBlack: false,
           isClear: false,
         },
@@ -373,11 +380,12 @@ function reducer(state: AppState, action: Action): AppState {
       return reducer(state, { type: 'GO_TO_ITEM', index: prev });
     }
     case 'NEXT_SLIDE':
+      // Legacy: move cursor only (preview)
       return {
         ...state,
         presentation: {
           ...state.presentation,
-          currentSlideIndex: state.presentation.currentSlideIndex + 1,
+          cursorSlideIndex: state.presentation.cursorSlideIndex + 1,
         },
       };
     case 'PREV_SLIDE':
@@ -385,14 +393,60 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         presentation: {
           ...state.presentation,
-          currentSlideIndex: Math.max(0, state.presentation.currentSlideIndex - 1),
+          cursorSlideIndex: Math.max(0, state.presentation.cursorSlideIndex - 1),
         },
       };
     case 'GO_TO_SLIDE':
+      // Jump cursor (preview). Does not change live output.
       return {
         ...state,
         presentation: {
           ...state.presentation,
+          cursorSlideIndex: Math.max(0, action.index),
+        },
+      };
+    case 'MOVE_CURSOR':
+      return {
+        ...state,
+        presentation: {
+          ...state.presentation,
+          cursorSlideIndex: Math.max(0, action.index),
+        },
+      };
+    case 'PRESENT_CURSOR': {
+      // Space: show the cursor slide on Main/Stage
+      const cursor = state.presentation.cursorSlideIndex;
+      const presented = state.presentation.currentSlideIndex;
+      if (cursor === presented) {
+        // Already live on cursor → advance both (operator flow: Space = next)
+        const next = cursor + 1;
+        return {
+          ...state,
+          presentation: {
+            ...state.presentation,
+            cursorSlideIndex: next,
+            currentSlideIndex: next,
+            isBlack: false,
+            isClear: false,
+          },
+        };
+      }
+      return {
+        ...state,
+        presentation: {
+          ...state.presentation,
+          currentSlideIndex: cursor,
+          isBlack: false,
+          isClear: false,
+        },
+      };
+    }
+    case 'PRESENT_AT':
+      return {
+        ...state,
+        presentation: {
+          ...state.presentation,
+          cursorSlideIndex: Math.max(0, action.index),
           currentSlideIndex: Math.max(0, action.index),
           isBlack: false,
           isClear: false,
@@ -444,6 +498,41 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'HYDRATE':
       return { ...state, ...action.state };
+    case 'SYNC_LIVE': {
+      const playlist =
+        (action.playlistId
+          ? state.playlists.find((p) => p.id === action.playlistId)
+          : null) || state.currentPlaylist;
+      if (!playlist) return state;
+      const idx = Math.max(0, Math.min(action.itemIndex, playlist.items.length - 1));
+      const slide = Math.max(0, action.slideIndex);
+      const cursor = Math.max(0, action.cursorIndex);
+      const pres = state.presentation;
+      if (
+        state.currentPlaylist?.id === playlist.id &&
+        pres.currentItemIndex === idx &&
+        pres.currentSlideIndex === slide &&
+        pres.cursorSlideIndex === cursor &&
+        pres.isBlack === action.isBlack &&
+        pres.isClear === action.isClear
+      ) {
+        return state; // no-op — prevents broadcast feedback loops
+      }
+      return {
+        ...state,
+        currentPlaylist: playlist,
+        currentItem: playlist.items[idx] || null,
+        presentation: {
+          ...pres,
+          currentPlaylistId: playlist.id,
+          currentItemIndex: idx,
+          currentSlideIndex: slide,
+          cursorSlideIndex: cursor,
+          isBlack: action.isBlack,
+          isClear: action.isClear,
+        },
+      };
+    }
     default:
       return state;
   }
@@ -512,67 +601,129 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Live sync between operator console and Main/Stage windows
+  // Live sync: operator is master; Main/Stage only follow.
+  // Avoid echo loops (BroadcastChannel delivers to same page) and never
+  // LOAD_PLAYLIST on every tick (that reset selection to item 0 → flicker).
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    const isOutput = view === 'main' || view === 'stage';
+    const clientId = `${isOutput ? 'out' : 'op'}-${Math.random().toString(36).slice(2, 9)}`;
     const channel = new BroadcastChannel('church-presenter-live');
-    const payload = {
-      presentation: state.presentation,
-      currentPlaylistId: state.currentPlaylist?.id ?? null,
-      currentItemIndex: state.presentation.currentItemIndex,
-      themes: state.themes,
-      settings: state.settings,
-    };
-    channel.postMessage({ type: 'LIVE', payload });
-    try {
-      sessionStorage.setItem('church-presenter-live', JSON.stringify(payload));
-    } catch {
-      /* ignore */
-    }
-    return () => channel.close();
-  }, [
-    state.presentation,
-    state.currentPlaylist?.id,
-    state.themes,
-    state.settings,
-  ]);
+    let lastAppliedSeq = 0;
+    let seq = 0;
 
-  useEffect(() => {
-    const channel = new BroadcastChannel('church-presenter-live');
-    const apply = (payload: {
-      presentation: AppState['presentation'];
-      currentPlaylistId: string | null;
-      currentItemIndex: number;
-      themes?: Theme[];
-      settings?: AppSettings;
-    }) => {
-      if (payload.themes || payload.settings) {
+    const post = () => {
+      if (isOutput) return; // outputs never broadcast
+      seq += 1;
+      const message = {
+        type: 'LIVE' as const,
+        sourceId: clientId,
+        seq,
+        payload: {
+          playlistId: state.currentPlaylist?.id ?? null,
+          itemIndex: state.presentation.currentItemIndex,
+          slideIndex: state.presentation.currentSlideIndex,
+          cursorIndex: state.presentation.cursorSlideIndex,
+          isBlack: state.presentation.isBlack,
+          isClear: state.presentation.isClear,
+        },
+      };
+      channel.postMessage(message);
+      try {
+        sessionStorage.setItem('church-presenter-live', JSON.stringify(message));
+      } catch {
+        /* ignore */
+      }
+    };
+
+    // Initial post from operator only
+    post();
+
+    // Only Main/Stage follow the operator. Operator ignores LIVE to avoid
+    // fighting with local clicks (was causing rapid item flicker).
+    if (isOutput) {
+      channel.onmessage = (ev) => {
+        const data = ev.data;
+        if (!data || data.type !== 'LIVE' || !data.payload) return;
+        if (typeof data.seq === 'number' && data.seq <= lastAppliedSeq) return;
+        lastAppliedSeq = data.seq ?? lastAppliedSeq;
+        const p = data.payload;
         dispatch({
-          type: 'HYDRATE',
-          state: {
-            ...(payload.themes ? { themes: payload.themes } : {}),
-            ...(payload.settings ? { settings: payload.settings } : {}),
-          },
+          type: 'SYNC_LIVE',
+          playlistId: p.playlistId,
+          itemIndex: p.itemIndex,
+          slideIndex: p.slideIndex,
+          cursorIndex: p.cursorIndex ?? p.slideIndex,
+          isBlack: !!p.isBlack,
+          isClear: !!p.isClear,
         });
+      };
+    }
+
+    // Output windows: pick up last operator state once
+    if (isOutput) {
+      try {
+        const raw = sessionStorage.getItem('church-presenter-live');
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data?.payload) {
+            const p = data.payload;
+            dispatch({
+              type: 'SYNC_LIVE',
+              playlistId: p.playlistId,
+              itemIndex: p.itemIndex,
+              slideIndex: p.slideIndex,
+              cursorIndex: p.cursorIndex ?? p.slideIndex,
+              isBlack: !!p.isBlack,
+              isClear: !!p.isClear,
+            });
+          }
+        }
+      } catch {
+        /* ignore */
       }
-      if (payload.currentPlaylistId) {
-        dispatch({ type: 'LOAD_PLAYLIST', playlistId: payload.currentPlaylistId });
-      }
-      dispatch({ type: 'GO_TO_ITEM', index: payload.currentItemIndex });
-      dispatch({ type: 'GO_TO_SLIDE', index: payload.presentation.currentSlideIndex });
-      dispatch({ type: 'SET_BLACK', value: payload.presentation.isBlack });
-      dispatch({ type: 'SET_CLEAR', value: payload.presentation.isClear });
+    }
+
+    return () => channel.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- post when presentation changes only via below
+  }, []);
+
+  // Operator broadcasts whenever live-relevant state changes
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isOutput = params.get('view') === 'main' || params.get('view') === 'stage';
+    if (isOutput) return;
+    const channel = new BroadcastChannel('church-presenter-live');
+    const clientId = 'op-broadcast';
+    const message = {
+      type: 'LIVE' as const,
+      sourceId: clientId,
+      seq: Date.now(),
+      payload: {
+        playlistId: state.currentPlaylist?.id ?? null,
+        itemIndex: state.presentation.currentItemIndex,
+        slideIndex: state.presentation.currentSlideIndex,
+        cursorIndex: state.presentation.cursorSlideIndex,
+        isBlack: state.presentation.isBlack,
+        isClear: state.presentation.isClear,
+      },
     };
-    channel.onmessage = (ev) => {
-      if (ev.data?.type === 'LIVE' && ev.data.payload) apply(ev.data.payload);
-    };
+    channel.postMessage(message);
     try {
-      const raw = sessionStorage.getItem('church-presenter-live');
-      if (raw) apply(JSON.parse(raw));
+      sessionStorage.setItem('church-presenter-live', JSON.stringify(message));
     } catch {
       /* ignore */
     }
-    return () => channel.close();
-  }, []);
+    channel.close();
+  }, [
+    state.presentation.currentItemIndex,
+    state.presentation.currentSlideIndex,
+    state.presentation.cursorSlideIndex,
+    state.presentation.isBlack,
+    state.presentation.isClear,
+    state.currentPlaylist?.id,
+  ]);
 
   const value: PresentationContextValue = {
     state,
@@ -584,6 +735,8 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     nextSlide: () => dispatch({ type: 'NEXT_SLIDE' }),
     prevSlide: () => dispatch({ type: 'PREV_SLIDE' }),
     goToSlide: (index) => dispatch({ type: 'GO_TO_SLIDE', index }),
+    presentCursor: () => dispatch({ type: 'PRESENT_CURSOR' }),
+    presentAt: (index) => dispatch({ type: 'PRESENT_AT', index }),
     setBlack: (v) => dispatch({ type: 'SET_BLACK', value: v }),
     setClear: (v) => dispatch({ type: 'SET_CLEAR', value: v }),
     getCurrentSong: () => {

@@ -20,7 +20,7 @@ export function StatusBar() {
         )}
       </div>
       <div className="status-right text-xs text-muted">
-        Keyboard: Space = Next · ←→ = Slides · B = Black · C = Clear
+        ←→ move cursor · Space present (live) · B black · C clear
       </div>
     </div>
   );

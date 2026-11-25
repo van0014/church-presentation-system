@@ -9,17 +9,24 @@ export function ControlBar() {
     prevItem,
     nextSlide,
     prevSlide,
+    presentCursor,
     setBlack,
     setClear,
   } = usePresentation();
 
-  const { isBlack, isClear, currentItemIndex } = state.presentation;
+  const { isBlack, isClear, currentItemIndex, cursorSlideIndex, currentSlideIndex } =
+    state.presentation;
   const total = state.currentPlaylist?.items.length ?? 0;
 
-  // Keyboard shortcuts
+  /**
+   * Keyboard model (within current playlist item):
+   * - ← → : move cursor (preview) only — does not change Main/Stage
+   * - Space : present cursor (show on output). If already presented, advance + present
+   * - Arrows do NOT change playlist selection
+   * - B / C / Esc : black / clear
+   */
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
-      // Ignore when typing in inputs
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -30,23 +37,17 @@ export function ControlBar() {
       switch (e.code) {
         case 'Space':
           e.preventDefault();
-          nextItem();
+          presentCursor();
           break;
         case 'ArrowRight':
+        case 'ArrowDown':
           e.preventDefault();
           nextSlide();
           break;
         case 'ArrowLeft':
-          e.preventDefault();
-          prevSlide();
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          nextItem();
-          break;
         case 'ArrowUp':
           e.preventDefault();
-          prevItem();
+          prevSlide();
           break;
         case 'KeyB':
           e.preventDefault();
@@ -61,17 +62,10 @@ export function ControlBar() {
           setClear(false);
           break;
         default:
-          // Number keys for quick jump (1-9)
-          if (e.code.startsWith('Digit')) {
-            const num = parseInt(e.code.replace('Digit', ''), 10);
-            if (num >= 1 && num <= 9) {
-              // Future: support modifier for +9
-              // For now just go to index num-1
-            }
-          }
+          break;
       }
     },
-    [nextItem, prevItem, nextSlide, prevSlide, setBlack, setClear, isBlack, isClear]
+    [presentCursor, nextSlide, prevSlide, setBlack, setClear, isBlack, isClear]
   );
 
   useEffect(() => {
@@ -85,17 +79,18 @@ export function ControlBar() {
         <button
           className="ctrl-btn"
           onClick={prevItem}
-          title="Previous item (↑)"
+          title="Previous playlist item"
           disabled={currentItemIndex <= 0}
         >
-          ⏮ Prev
+          ⏮ Item
         </button>
         <button
-          className="ctrl-btn primary"
+          className="ctrl-btn"
           onClick={nextItem}
-          title="Next item (Space / ↓)"
+          title="Next playlist item"
+          disabled={total === 0 || currentItemIndex >= total - 1}
         >
-          Next ⏭
+          Item ⏭
         </button>
       </div>
 
@@ -103,24 +98,40 @@ export function ControlBar() {
         <button
           className="ctrl-btn"
           onClick={prevSlide}
-          title="Previous slide (←)"
+          title="Move cursor back (←)"
         >
-          ◀ Slide
+          ◀ Cursor
+        </button>
+        <button
+          className="ctrl-btn primary"
+          onClick={presentCursor}
+          title="Present cursor slide (Space)"
+        >
+          Present ⏎
         </button>
         <button
           className="ctrl-btn"
           onClick={nextSlide}
-          title="Next slide (→)"
+          title="Move cursor forward (→)"
         >
-          Slide ▶
+          Cursor ▶
         </button>
+      </div>
+
+      <div className="control-group text-xs text-muted" style={{ gap: 8 }}>
+        <span>
+          Cursor {cursorSlideIndex + 1}
+          {cursorSlideIndex !== currentSlideIndex && (
+            <span> · Live {currentSlideIndex + 1}</span>
+          )}
+        </span>
       </div>
 
       <div className="control-group">
         <button
           className={`ctrl-btn ${isBlack ? 'active danger' : ''}`}
           onClick={() => setBlack(!isBlack)}
-          title="Black screen (B)"
+          title="Black (B)"
         >
           Black
         </button>
@@ -131,10 +142,6 @@ export function ControlBar() {
         >
           Clear
         </button>
-      </div>
-
-      <div className="control-info text-sm text-muted">
-        Item {currentItemIndex + 1} / {total}
       </div>
     </div>
   );

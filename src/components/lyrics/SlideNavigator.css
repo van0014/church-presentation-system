@@ -165,3 +165,54 @@
   font-size: 1.25rem;
   font-weight: 600;
 }
+
+/* Cursor = operator guide (not yet live) */
+.nav-card.cursor {
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 1px #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+/* Presented = live on Main/Stage */
+.nav-card.presented {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 1px var(--accent), 0 4px 16px rgba(59, 130, 246, 0.2);
+}
+
+.nav-card.cursor.presented {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 16px rgba(59, 130, 246, 0.25);
+}
+
+.badge-live,
+.badge-cursor {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+.badge-live {
+  color: var(--accent);
+}
+
+.badge-cursor {
+  color: #94a3b8;
+}
+
+.legend-cursor {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.legend-live {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.generic-card.presented {
+  border-color: var(--accent);
+}
