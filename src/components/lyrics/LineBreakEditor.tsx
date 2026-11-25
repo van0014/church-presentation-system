@@ -1,6 +1,8 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import type { Song, SongSection, SongSlide, SongLine } from '../../types';
-import { serializeSongText, totalSlides } from '../../utils/songText';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import type { Song, SongSection, SongSlide, SongLine, Theme } from '../../types';
+import { serializeSongText, totalSlides, getSlideAt } from '../../utils/songText';
+import { usePresentation } from '../../stores/PresentationContext';
+import { FitControls } from '../controls/FitControls';
 import './LineBreakEditor.css';
 
 interface Props {
@@ -30,10 +32,15 @@ interface FlatLine {
  * - Click an existing “slide break” separator → remove it (merge slides, keep lines)
  */
 export function LineBreakEditor({ song, onSave, onCancel }: Props) {
+  const { getCurrentTheme } = usePresentation();
+  const theme = getCurrentTheme();
+
   const [sections, setSections] = useState<SongSection[]>(
     structuredClone(song.sections)
   );
   const [title] = useState(song.title);
+  /** Which slide the live preview shows — follows the line you hover/edit */
+  const [focusSlideIndex, setFocusSlideIndex] = useState(0);
   const [hover, setHover] = useState<{
     flatIndex: number;
     offset: number;
@@ -42,6 +49,16 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
   const [gapHover, setGapHover] = useState<string | null>(null); // "si-sli-afterLi"
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Global slide index for a given section/slide
+  const slideGlobalIndex = useCallback(
+    (sectionIndex: number, slideIndex: number) => {
+      let n = 0;
+      for (let i = 0; i < sectionIndex; i++) n += sections[i].slides.length;
+      return n + slideIndex;
+    },
+    [sections]
+  );
 
   const flatLines: FlatLine[] = [];
   sections.forEach((section, si) => {
@@ -121,8 +138,13 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
       }
 
       setHover({ flatIndex, offset: snapped, mode });
+
+      const fl = flatLines[flatIndex];
+      if (fl) {
+        setFocusSlideIndex(slideGlobalIndex(fl.sectionIndex, fl.slideIndex));
+      }
     },
-    [flatLines]
+    [flatLines, slideGlobalIndex]
   );
 
   const handleMouseLeave = () => setHover(null);
@@ -336,101 +358,215 @@ export function LineBreakEditor({ song, onSave, onCancel }: Props) {
     );
   });
 
+  const previewSong: Song = useMemo(
+    () => ({ ...song, sections }),
+    [song, sections]
+  );
+  const focusResult = getSlideAt(sections, focusSlideIndex);
+  const total = totalSlides(sections);
+
   return (
     <div className="linebreak-editor" ref={containerRef}>
       <header className="lb-header">
         <div className="lb-title">
           <span className="lb-song-title">{title}</span>
           <span className="lb-hint">
-            Click word edge → split · line edge → join · gap or Shift+edge →
-            slide break · Esc cancel · ⌘S save
+            Click a word edge to split · line edge to join · gap for a new slide
           </span>
         </div>
         <div className="lb-meta">
-          {sections.length} sections · {totalSlides(sections)} slides
+          {sections.length} sections · {total} slides
         </div>
       </header>
 
-      <div className="lb-body">
-        {sections.map((section, si) => (
-          <div key={section.id} className="lb-section">
-            <div className="lb-section-label">[{section.label}]</div>
+      {/* Split: edit left · live screen right */}
+      <div className="lb-split">
+        <div className="lb-edit-pane">
+          <div className="lb-pane-label">Edit lines</div>
+          <div className="lb-body">
+            {sections.map((section, si) => (
+              <div key={section.id} className="lb-section">
+                <div className="lb-section-label">[{section.label}]</div>
 
-            {section.slides.map((slide, sli) => (
-              <div key={slide.id} className="lb-slide">
-                {slide.lines.map((line, li) => {
-                  const flatIndex = flatIndexMap.get(`${si}-${sli}-${li}`) ?? 0;
-                  const isHovered = hover?.flatIndex === flatIndex;
-                  const caretOffset = isHovered ? hover!.offset : -1;
-                  const mode = isHovered ? hover!.mode : null;
-                  const gapKey = `${si}-${sli}-${li}`;
-                  const showGapAfter = li < slide.lines.length - 1;
+                {section.slides.map((slide, sli) => {
+                  const gIdx = slideGlobalIndex(si, sli);
+                  const isFocusSlide = gIdx === focusSlideIndex;
 
                   return (
-                    <React.Fragment key={line.id}>
-                      <div
-                        className={`lb-line ${isHovered ? 'hovered' : ''} ${
-                          mode ? `mode-${mode}` : ''
-                        }`}
-                        onMouseMove={(e) => handleMouseMove(e, flatIndex)}
-                        onMouseLeave={handleMouseLeave}
-                        onClick={(e) => handleClick(e, flatIndex)}
-                      >
-                        <LineWithCaret
-                          text={line.text}
-                          caretOffset={caretOffset}
-                          mode={mode}
-                        />
-                      </div>
+                    <div
+                      key={slide.id}
+                      className={`lb-slide ${isFocusSlide ? 'focus-slide' : ''}`}
+                      onMouseEnter={() => setFocusSlideIndex(gIdx)}
+                    >
+                      {slide.lines.map((line, li) => {
+                        const flatIndex =
+                          flatIndexMap.get(`${si}-${sli}-${li}`) ?? 0;
+                        const isHovered = hover?.flatIndex === flatIndex;
+                        const caretOffset = isHovered ? hover!.offset : -1;
+                        const mode = isHovered ? hover!.mode : null;
+                        const gapKey = `${si}-${sli}-${li}`;
+                        const showGapAfter = li < slide.lines.length - 1;
 
-                      {/* Inter-line gap: click to insert slide break */}
-                      {showGapAfter && (
+                        return (
+                          <React.Fragment key={line.id}>
+                            <div
+                              className={`lb-line ${
+                                isHovered ? 'hovered' : ''
+                              } ${mode ? `mode-${mode}` : ''}`}
+                              onMouseMove={(e) =>
+                                handleMouseMove(e, flatIndex)
+                              }
+                              onMouseLeave={handleMouseLeave}
+                              onClick={(e) => handleClick(e, flatIndex)}
+                            >
+                              <LineWithCaret
+                                text={line.text}
+                                caretOffset={caretOffset}
+                                mode={mode}
+                              />
+                            </div>
+
+                            {showGapAfter && (
+                              <div
+                                className={`lb-inter-gap ${
+                                  gapHover === gapKey ? 'hot' : ''
+                                }`}
+                                onMouseEnter={() => setGapHover(gapKey)}
+                                onMouseLeave={() => setGapHover(null)}
+                                onClick={() =>
+                                  applySlideBreakAfter(si, sli, li)
+                                }
+                                title="Click to start a new slide here"
+                              >
+                                <span className="lb-inter-gap-label">
+                                  {gapHover === gapKey ? 'new slide' : ''}
+                                </span>
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+
+                      {sli < section.slides.length - 1 && (
                         <div
-                          className={`lb-inter-gap ${
-                            gapHover === gapKey ? 'hot' : ''
-                          }`}
-                          onMouseEnter={() => setGapHover(gapKey)}
-                          onMouseLeave={() => setGapHover(null)}
-                          onClick={() =>
-                            applySlideBreakAfter(si, sli, li)
-                          }
-                          title="Click to insert slide break"
+                          className="lb-slide-gap removable"
+                          title="Click to join these slides"
+                          onClick={() => removeSlideBreak(si, sli)}
                         >
-                          <span className="lb-inter-gap-label">
-                            {gapHover === gapKey ? 'slide break' : ''}
-                          </span>
+                          <span>slide break · click to join</span>
                         </div>
                       )}
-                    </React.Fragment>
+                    </div>
                   );
                 })}
-
-                {/* Existing slide break between slides — click to remove */}
-                {sli < section.slides.length - 1 && (
-                  <div
-                    className="lb-slide-gap removable"
-                    title="Click to remove slide break (merge slides)"
-                    onClick={() => removeSlideBreak(si, sli)}
-                  >
-                    <span>slide break · click to merge</span>
-                  </div>
-                )}
               </div>
             ))}
           </div>
-        ))}
+        </div>
+
+        <div className="lb-preview-pane">
+          <div className="lb-pane-label">
+            On screen
+            {focusResult && (
+              <span className="lb-preview-slide-meta">
+                {' '}
+                · {focusResult.section.label} · slide {focusSlideIndex + 1}/
+                {total}
+              </span>
+            )}
+          </div>
+          <FitControls />
+          <div
+            className="lb-screen"
+            style={{
+              backgroundColor: theme.backgroundColor,
+              color: theme.textColor,
+              fontFamily: theme.fontFamily,
+            }}
+          >
+            {focusResult ? (
+              <ScreenSlide
+                lines={focusResult.slide.lines.map((l) => l.text)}
+                theme={theme}
+                sectionLabel={focusResult.section.label}
+              />
+            ) : (
+              <div className="lb-screen-empty">No slide</div>
+            )}
+          </div>
+          <p className="lb-preview-note">
+            Same font and layout as the main screen. Split lines if text feels
+            cramped; join if a line is too short.
+          </p>
+        </div>
       </div>
 
       <footer className="lb-footer">
-        <span className="text-muted text-xs">
-          Esc cancel · ⌘S / Ctrl+S save
-        </span>
+        <span className="text-muted text-xs">Esc cancel · ⌘S save</span>
         <button className="btn btn-primary text-sm" onClick={handleSave}>
           Save
         </button>
       </footer>
     </div>
   );
+}
+
+/** Faithful-ish rendering of one slide as the congregation will see it */
+function ScreenSlide({
+  lines,
+  theme,
+  sectionLabel,
+}: {
+  lines: string[];
+  theme: Theme;
+  sectionLabel: string;
+}) {
+  const box: React.CSSProperties = theme.textBoxEnabled
+    ? {
+        backgroundColor: hexToRgba(theme.textBoxColor, theme.textBoxOpacity),
+        padding: theme.textBoxPadding,
+        borderRadius: theme.textBoxBorderRadius,
+      }
+    : {};
+
+  const letter = theme.letterSpacing ?? 0;
+  const word = theme.wordSpacing ?? 0;
+  // Preview scales down slightly so the pane fits; ratio tracks the fit slider
+  const previewSize = Math.min(theme.fontSizeBase * 0.72, 48);
+
+  return (
+    <div className="lb-screen-inner">
+      <div className="lb-screen-section" style={{ color: theme.secondaryTextColor }}>
+        {sectionLabel}
+      </div>
+      <div
+        className="lb-screen-lyrics"
+        style={{
+          ...box,
+          fontFamily: theme.fontFamily,
+          letterSpacing: `${letter}em`,
+          wordSpacing: `${word}em`,
+        }}
+      >
+        {lines.map((text, i) => (
+          <div
+            key={i}
+            className="lb-screen-line"
+            style={{ fontSize: previewSize }}
+          >
+            {text || '\u00A0'}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function LineWithCaret({

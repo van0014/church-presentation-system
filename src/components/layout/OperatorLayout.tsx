@@ -1,12 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { usePresentation } from '../../stores/PresentationContext';
 import { PlaylistPanel } from '../playlist/PlaylistPanel';
-import { PreviewPanel } from '../controls/PreviewPanel';
 import { ControlBar } from '../controls/ControlBar';
 import { StatusBar } from '../controls/StatusBar';
-import { ItemDetail } from '../controls/ItemDetail';
+import { SlideNavigator } from '../lyrics/SlideNavigator';
 import { LineBreakEditor } from '../lyrics/LineBreakEditor';
-import { SongThumbnailStrip } from '../lyrics/SongThumbnailStrip';
 import { importSongsFromFiles } from '../../utils/importSong';
 import type { Song } from '../../types';
 import './OperatorLayout.css';
@@ -14,14 +12,14 @@ import './OperatorLayout.css';
 type ViewMode = 'operator' | 'line-break-editor';
 
 export function OperatorLayout() {
-  const { state, dispatch, getCurrentSong, goToSlide } = usePresentation();
+  const { state, dispatch, getCurrentSong } = usePresentation();
   const [viewMode, setViewMode] = useState<ViewMode>('operator');
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentSong = getCurrentSong();
+  const item = state.currentItem;
 
-  /** Primary editor: the caret-based line-break experience */
   const openEditor = (song: Song) => {
     setEditingSong(song);
     setViewMode('line-break-editor');
@@ -58,11 +56,6 @@ export function OperatorLayout() {
     e.target.value = '';
   };
 
-  const handleSelectSlide = (globalIndex: number) => {
-    goToSlide(globalIndex);
-  };
-
-  // ---------- Line-break editor (primary) ----------
   if (viewMode === 'line-break-editor' && editingSong) {
     return (
       <div className="operator-layout">
@@ -75,7 +68,6 @@ export function OperatorLayout() {
     );
   }
 
-  // ---------- Normal operator mode ----------
   return (
     <div className="operator-layout">
       {!state.presentation.isOnline && (
@@ -91,6 +83,15 @@ export function OperatorLayout() {
           <span className="logo-text">Church Presenter</span>
         </div>
         <div className="header-actions">
+          {item?.type === 'song' && currentSong && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => openEditor(currentSong)}
+              title="Edit line breaks"
+            >
+              {currentSong.lineBreaksReviewed ? 'Edit breaks' : 'Review breaks'}
+            </button>
+          )}
           <button
             className="btn btn-ghost"
             onClick={handleImportClick}
@@ -107,7 +108,7 @@ export function OperatorLayout() {
             onChange={handleFilesSelected}
           />
           <button className="btn btn-ghost" title="Settings">
-            ⚙ Settings
+            ⚙
           </button>
           <button className="btn btn-primary" title="Open Main Output">
             Open Main
@@ -119,15 +120,17 @@ export function OperatorLayout() {
       </header>
 
       <div className="operator-body">
+        {/* Left: Playlist only */}
         <aside className="panel playlist-panel">
           <PlaylistPanel />
         </aside>
 
+        {/* Center: large slide navigator (file-manager style) — primary surface */}
         <main className="panel center-panel">
-          <PreviewPanel />
-          <ItemDetail onEditSong={openEditor} />
+          <SlideNavigator />
         </main>
 
+        {/* Right: compact library */}
         <aside className="panel library-panel">
           <div className="panel-header library-header">
             <h2>Library</h2>
@@ -138,8 +141,7 @@ export function OperatorLayout() {
               + Import
             </button>
           </div>
-
-          <div className="library-songs">
+          <div className="library-songs library-songs-full">
             {state.songs.length === 0 && (
               <p
                 className="text-muted text-sm"
@@ -168,20 +170,6 @@ export function OperatorLayout() {
               </button>
             ))}
           </div>
-
-          {currentSong && (
-            <div className="library-thumbs">
-              <div className="panel-header" style={{ padding: '8px 12px' }}>
-                <h2 style={{ fontSize: '0.7rem' }}>Slides</h2>
-              </div>
-              <SongThumbnailStrip
-                song={currentSong}
-                currentSlideIndex={state.presentation.currentSlideIndex}
-                onSelectSlide={handleSelectSlide}
-                compact
-              />
-            </div>
-          )}
         </aside>
       </div>
 

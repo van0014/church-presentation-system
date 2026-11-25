@@ -18,7 +18,7 @@ Built for **inexperienced operators** under Sunday pressure. Every choice should
    Few or no mode buttons.
 
 4. **Plain language**  
-   Labels: “Edit lines”, “On screen”, “new slide”. Avoid jargon (canonical, viewport, etc.) in the UI.
+   Labels: “Edit lines”, “On screen”, “new slide”, “click to join”. Avoid jargon (canonical, viewport, etc.) in the UI.
 
 5. **Safe defaults**  
    Imports open in review. Saving marks “reviewed”. Esc cancels. Nothing destructive without an obvious reverse (e.g. click slide break to merge).

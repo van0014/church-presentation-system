@@ -27,6 +27,8 @@ const defaultTheme: Theme = {
   secondaryTextColor: '#cccccc',
   fontFamily: 'Inter, system-ui, sans-serif',
   fontSizeBase: 48,
+  letterSpacing: 0,
+  wordSpacing: 0,
   textBoxEnabled: true,
   textBoxColor: '#000000',
   textBoxOpacity: 0.55,
@@ -300,6 +302,7 @@ type Action =
   | { type: 'ADD_PLAYLIST'; playlist: Playlist }
   | { type: 'UPDATE_PLAYLIST'; id: string; updates: Partial<Playlist> }
   | { type: 'SET_SETTINGS'; updates: Partial<AppSettings> }
+  | { type: 'UPDATE_THEME'; id: string; updates: Partial<Theme> }
   | { type: 'HYDRATE'; state: Partial<AppState> };
 
 const initialState: AppState = {
@@ -432,6 +435,13 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'SET_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.updates } };
+    case 'UPDATE_THEME':
+      return {
+        ...state,
+        themes: state.themes.map((t) =>
+          t.id === action.id ? { ...t, ...action.updates } : t
+        ),
+      };
     case 'HYDRATE':
       return { ...state, ...action.state };
     default:
@@ -456,6 +466,7 @@ interface PresentationContextValue {
   setClear: (v: boolean) => void;
   getCurrentSong: () => Song | null;
   getCurrentTheme: () => Theme;
+  updateTheme: (id: string, updates: Partial<Theme>) => void;
 }
 
 const PresentationContext = createContext<PresentationContextValue | null>(null);
@@ -524,6 +535,8 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
         defaultTheme
       );
     },
+    updateTheme: (id, updates) =>
+      dispatch({ type: 'UPDATE_THEME', id, updates }),
   };
 
   return (
