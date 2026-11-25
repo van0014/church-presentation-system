@@ -110,10 +110,30 @@ export function OperatorLayout() {
           <button className="btn btn-ghost" title="Settings">
             ⚙
           </button>
-          <button className="btn btn-primary" title="Open Main Output">
+          <button
+            className="btn btn-primary"
+            title="Open Main Output"
+            onClick={() =>
+              window.open(
+                `${window.location.origin}${window.location.pathname}?view=main`,
+                'church-main',
+                'noopener,noreferrer'
+              )
+            }
+          >
             Open Main
           </button>
-          <button className="btn btn-secondary" title="Open Stage Monitor">
+          <button
+            className="btn btn-secondary"
+            title="Open Stage Monitor"
+            onClick={() =>
+              window.open(
+                `${window.location.origin}${window.location.pathname}?view=stage`,
+                'church-stage',
+                'noopener,noreferrer'
+              )
+            }
+          >
             Open Stage
           </button>
         </div>

@@ -12,14 +12,19 @@ export const PROJECTION_FONTS: { label: string; value: string }[] = [
   { label: 'Narrow', value: '"Arial Narrow", Arial, sans-serif' },
 ];
 
-/** Map slider 0–100 → px (hidden from operator) */
+/** Map slider 0–100 → px (hidden from operator). Room for large projection. */
+const FIT_MIN_PX = 24;
+const FIT_MAX_PX = 120;
+
 export function fitToPx(fit: number): number {
-  // 0 = 28px, 50 ≈ 48px, 100 = 72px
-  return Math.round(28 + (fit / 100) * 44);
+  // 0 = 24px, ~50 ≈ 72px, 100 = 120px
+  const clamped = Math.max(0, Math.min(100, fit));
+  return Math.round(FIT_MIN_PX + (clamped / 100) * (FIT_MAX_PX - FIT_MIN_PX));
 }
 
 export function pxToFit(px: number): number {
-  return Math.round(((px - 28) / 44) * 100);
+  const t = ((px - FIT_MIN_PX) / (FIT_MAX_PX - FIT_MIN_PX)) * 100;
+  return Math.round(Math.max(0, Math.min(100, t)));
 }
 
 /**

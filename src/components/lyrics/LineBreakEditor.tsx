@@ -532,7 +532,7 @@ function ScreenSlide({
   const letter = theme.letterSpacing ?? 0;
   const word = theme.wordSpacing ?? 0;
   // Preview scales down slightly so the pane fits; ratio tracks the fit slider
-  const previewSize = Math.min(theme.fontSizeBase * 0.72, 48);
+  const previewSize = Math.min(theme.fontSizeBase * 0.75, 90);
 
   return (
     <div className="lb-screen-inner">

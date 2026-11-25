@@ -512,6 +512,68 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Live sync between operator console and Main/Stage windows
+  useEffect(() => {
+    const channel = new BroadcastChannel('church-presenter-live');
+    const payload = {
+      presentation: state.presentation,
+      currentPlaylistId: state.currentPlaylist?.id ?? null,
+      currentItemIndex: state.presentation.currentItemIndex,
+      themes: state.themes,
+      settings: state.settings,
+    };
+    channel.postMessage({ type: 'LIVE', payload });
+    try {
+      sessionStorage.setItem('church-presenter-live', JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+    return () => channel.close();
+  }, [
+    state.presentation,
+    state.currentPlaylist?.id,
+    state.themes,
+    state.settings,
+  ]);
+
+  useEffect(() => {
+    const channel = new BroadcastChannel('church-presenter-live');
+    const apply = (payload: {
+      presentation: AppState['presentation'];
+      currentPlaylistId: string | null;
+      currentItemIndex: number;
+      themes?: Theme[];
+      settings?: AppSettings;
+    }) => {
+      if (payload.themes || payload.settings) {
+        dispatch({
+          type: 'HYDRATE',
+          state: {
+            ...(payload.themes ? { themes: payload.themes } : {}),
+            ...(payload.settings ? { settings: payload.settings } : {}),
+          },
+        });
+      }
+      if (payload.currentPlaylistId) {
+        dispatch({ type: 'LOAD_PLAYLIST', playlistId: payload.currentPlaylistId });
+      }
+      dispatch({ type: 'GO_TO_ITEM', index: payload.currentItemIndex });
+      dispatch({ type: 'GO_TO_SLIDE', index: payload.presentation.currentSlideIndex });
+      dispatch({ type: 'SET_BLACK', value: payload.presentation.isBlack });
+      dispatch({ type: 'SET_CLEAR', value: payload.presentation.isClear });
+    };
+    channel.onmessage = (ev) => {
+      if (ev.data?.type === 'LIVE' && ev.data.payload) apply(ev.data.payload);
+    };
+    try {
+      const raw = sessionStorage.getItem('church-presenter-live');
+      if (raw) apply(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+    return () => channel.close();
+  }, []);
+
   const value: PresentationContextValue = {
     state,
     dispatch,
