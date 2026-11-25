@@ -7,8 +7,7 @@ export function ControlBar() {
     state,
     nextItem,
     prevItem,
-    nextSlide,
-    prevSlide,
+    moveCursorSpatial,
     presentCursor,
     setBlack,
     setClear,
@@ -40,14 +39,20 @@ export function ControlBar() {
           presentCursor();
           break;
         case 'ArrowRight':
+          e.preventDefault();
+          moveCursorSpatial('right');
+          break;
         case 'ArrowDown':
           e.preventDefault();
-          nextSlide();
+          moveCursorSpatial('down');
           break;
         case 'ArrowLeft':
+          e.preventDefault();
+          moveCursorSpatial('left');
+          break;
         case 'ArrowUp':
           e.preventDefault();
-          prevSlide();
+          moveCursorSpatial('up');
           break;
         case 'KeyB':
           e.preventDefault();
@@ -65,7 +70,7 @@ export function ControlBar() {
           break;
       }
     },
-    [presentCursor, nextSlide, prevSlide, setBlack, setClear, isBlack, isClear]
+    [presentCursor, moveCursorSpatial, setBlack, setClear, isBlack, isClear]
   );
 
   useEffect(() => {
@@ -97,24 +102,38 @@ export function ControlBar() {
       <div className="control-group">
         <button
           className="ctrl-btn"
-          onClick={prevSlide}
-          title="Move cursor back (←)"
+          onClick={() => moveCursorSpatial('left')}
+          title="Cursor left"
         >
-          ◀ Cursor
+          ◀
+        </button>
+        <button
+          className="ctrl-btn"
+          onClick={() => moveCursorSpatial('up')}
+          title="Cursor up"
+        >
+          ▲
         </button>
         <button
           className="ctrl-btn primary"
           onClick={presentCursor}
-          title="Present cursor slide (Space)"
+          title="Present cursor (Space)"
         >
-          Present ⏎
+          Present
         </button>
         <button
           className="ctrl-btn"
-          onClick={nextSlide}
-          title="Move cursor forward (→)"
+          onClick={() => moveCursorSpatial('down')}
+          title="Cursor down"
         >
-          Cursor ▶
+          ▼
+        </button>
+        <button
+          className="ctrl-btn"
+          onClick={() => moveCursorSpatial('right')}
+          title="Cursor right"
+        >
+          ▶
         </button>
       </div>
 

@@ -76,10 +76,9 @@
   cursor: pointer;
 }
 
-.nav-card:hover {
-  background: var(--bg-tertiary);
-  border-color: #4a5568;
-  transform: translateY(-1px);
+.nav-card:hover:not(.presented) {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .nav-card.active {
@@ -166,11 +165,11 @@
   font-weight: 600;
 }
 
-/* Cursor = operator guide (not yet live) */
-.nav-card.cursor {
-  border-color: #94a3b8;
-  box-shadow: 0 0 0 1px #94a3b8;
-  background: rgba(148, 163, 184, 0.12);
+/* Keyboard cursor — subtle only (not for mouse path) */
+.nav-card.cursor:not(.presented) {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.06);
+  box-shadow: none;
 }
 
 /* Presented = live on Main/Stage */

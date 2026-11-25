@@ -2,7 +2,7 @@ import React, {
   createContext,
   useContext,
   useReducer,
-  useEffect,
+  useEffect, useRef,
   ReactNode,
 } from 'react';
 import type {
@@ -15,6 +15,7 @@ import type {
   Venue,
   Scripture,
 } from '../types';
+import { spatialNeighbour } from '../utils/spatialNav';
 
 // ---------- Default data ----------
 
@@ -562,6 +563,9 @@ const PresentationContext = createContext<PresentationContextValue | null>(null)
 
 export function PresentationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const spatialCardsGetter = useRef<(() => Element[]) | null>(null);
+  const cursorRef = useRef(state.presentation.cursorSlideIndex);
+  cursorRef.current = state.presentation.cursorSlideIndex;
 
   // Persist to localStorage
   useEffect(() => {
@@ -737,6 +741,23 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     goToSlide: (index) => dispatch({ type: 'GO_TO_SLIDE', index }),
     presentCursor: () => dispatch({ type: 'PRESENT_CURSOR' }),
     presentAt: (index) => dispatch({ type: 'PRESENT_AT', index }),
+    registerSpatialCards: (getter) => {
+      spatialCardsGetter.current = getter;
+    },
+    moveCursorSpatial: (dir) => {
+      const cards = spatialCardsGetter.current?.() ?? [];
+      if (cards.length === 0) {
+        // Fallback linear
+        if (dir === 'right' || dir === 'down') dispatch({ type: 'NEXT_SLIDE' });
+        else dispatch({ type: 'PREV_SLIDE' });
+        return;
+      }
+      // Dynamic import avoided — spatial logic inlined via window helper if needed
+      const from = cursorRef.current;
+      // Use data attribute index order
+      const next = spatialNeighbour(cards, from, dir);
+      dispatch({ type: 'MOVE_CURSOR', index: next });
+    },
     setBlack: (v) => dispatch({ type: 'SET_BLACK', value: v }),
     setClear: (v) => dispatch({ type: 'SET_CLEAR', value: v }),
     getCurrentSong: () => {
